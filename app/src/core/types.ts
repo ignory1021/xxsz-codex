@@ -3,8 +3,9 @@ export type Personality = '豪迈' | '谨慎' | '豁达' | '温和' | '孤僻' |
 export type Difficulty = 'light' | 'medium' | 'heavy' | 'extreme'
 export type ActionKind = 'cultivate' | 'adventure' | 'alchemy'
 export type EncounterChoice = 'observe' | 'risk' | 'leave' | 'invite' | 'greet' | 'challenge'
-export type GameSpeed = 1 | 3 | 5
+export type GameSpeed = 1 | 5 | 10
 export type GamePhase = 'playing' | 'dead' | 'ascended'
+export type PillId = 'peiyuan' | 'ningyuan' | 'jinsui' | 'yinghua' | 'huashen' | 'xuling' | 'hedao' | 'dacheng' | 'bijie'
 
 export interface SpiritRoot {
   name: string
@@ -72,7 +73,17 @@ export interface LineageEntry {
 export interface Inventory {
   herbs: number
   ore: number
-  pills: number
+  pills: Record<PillId, number>
+}
+
+export interface PillRecipe {
+  id: PillId
+  name: string
+  unlockRealm: number
+  herbsCost: number
+  oreCost: number
+  pillQi: number
+  description: string
 }
 
 export interface ActiveAction {
@@ -80,6 +91,8 @@ export interface ActiveAction {
   difficulty: Difficulty
   startedAt: number
   endsAt: number
+  recipeId?: PillId
+  pausedAt?: number
 }
 
 export interface ActionPlan {
@@ -133,6 +146,7 @@ export interface GameData {
   idleMode: boolean
   lastUpdatedAt: number
   inventory: Inventory
+  alchemyRecipeId: PillId
   friends: Friend[]
   chronicle: ChronicleEntry[]
   lineage: LineageEntry[]

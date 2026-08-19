@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { DIFFICULTIES, REALMS } from '../data/gameData'
+import { DIFFICULTIES, EMPTY_PILL_STOCK, PILL_RECIPES, REALMS } from '../data/gameData'
 import {
-  actionCostMonths,
   applyAge,
   attemptBreakthrough,
   createNewGame,
   normalizeProgress,
+  pillRecipeById,
   reincarnate,
   resolveEncounter,
   settleAction,
@@ -20,6 +20,7 @@ import type {
   GameData,
   GameSpeed,
   OfflineReport,
+  PillId,
 } from '../core/types'
 import { clearGame, loadGame, saveGame } from '../persistence/saveRepository'
 
@@ -34,8 +35,9 @@ interface GameStore {
   setSpeed: (speed: GameSpeed) => void
   setIdleMode: (idle: boolean) => void
   setActionPlan: (kind: ActionKind, difficulty: Difficulty) => void
+  setAlchemyRecipe: (recipeId: PillId) => void
   resolveEncounter: (choice: EncounterChoice) => void
-  takePill: () => void
+  takePill: (recipeId: PillId) => void
   breakthrough: () => void
   dismissOfflineReport: () => void
   reincarnate: () => void
@@ -55,6 +57,23 @@ function applyOnlineElapsed(game: GameData, now: number): GameData {
   return aged
 }
 
+export function pauseActiveAction(game: GameData, now: number): GameData['activeAction'] {
+  if (!game.activeAction || game.activeAction.pausedAt) return game.activeAction
+  return { ...game.activeAction, pausedAt: now }
+}
+
+export function resumeActiveAction(game: GameData, now: number): GameData['activeAction'] {
+  const action = game.activeAction
+  if (!action || !action.pausedAt) return action
+  const pausedDuration = Math.max(now - action.pausedAt, 0)
+  return {
+    ...action,
+    startedAt: action.startedAt + pausedDuration,
+    endsAt: action.endsAt + pausedDuration,
+    pausedAt: undefined,
+  }
+}
+
 export function startPlannedAction(game: GameData, now: number): GameData {
   const plan = game.actionPlan
   if (!plan || !game.running || game.phase !== 'playing' || game.activeAction || game.pendingEncounter) return game
@@ -62,16 +81,20 @@ export function startPlannedAction(game: GameData, now: number): GameData {
 
   const config = DIFFICULTIES.find((item) => item.id === plan.difficulty)
   if (!config || game.realmIndex < config.unlockRealm) return game
-  if (plan.kind === 'alchemy' && game.inventory.herbs < 2) return game
-
-  const aged = applyAge(game, actionCostMonths(plan.difficulty))
-  if (aged.phase !== 'playing') return aged
+  const recipe = plan.kind === 'alchemy' ? pillRecipeById(game.alchemyRecipeId) : null
+  if (recipe && (game.realmIndex < recipe.unlockRealm || game.inventory.herbs < recipe.herbsCost || game.inventory.ore < recipe.oreCost)) return game
 
   const durationScale = plan.kind === 'cultivate' ? 0.75 : 1
   return {
-    ...aged,
+    ...game,
     lastUpdatedAt: now,
-    activeAction: { kind: plan.kind, difficulty: plan.difficulty, startedAt: now, endsAt: now + config.durationMs * durationScale },
+    activeAction: {
+      kind: plan.kind,
+      difficulty: plan.difficulty,
+      startedAt: now,
+      endsAt: now + config.durationMs * durationScale,
+      recipeId: recipe?.id,
+    },
   }
 }
 
@@ -89,8 +112,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const now = Date.now()
     const elapsed = Math.max(now - saved.lastUpdatedAt, 0)
+    const savedPills = saved.inventory.pills as unknown
+    const pills: GameData['inventory']['pills'] = typeof savedPills === 'number'
+      ? { ...EMPTY_PILL_STOCK, peiyuan: savedPills }
+      : { ...EMPTY_PILL_STOCK, ...(savedPills as Partial<GameData['inventory']['pills']>) }
+    const savedSpeed = saved.speed as unknown
+    const speed = savedSpeed === 10 ? 10 : savedSpeed === 5 || savedSpeed === 3 ? 5 : 1
+    const alchemyRecipeId = PILL_RECIPES.some((recipe) => recipe.id === saved.alchemyRecipeId)
+      ? saved.alchemyRecipeId
+      : 'peiyuan'
     let game: GameData = {
       ...saved,
+      speed,
+      inventory: { ...saved.inventory, pills },
+      alchemyRecipeId,
       actionPlan: saved.actionPlan ?? null,
       pendingEncounter: saved.pendingEncounter ?? null,
       activeAction: null,
@@ -121,8 +156,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const current = get().game
     if (!current) return
     let game = applyOnlineElapsed(current, now)
-    if (game.activeAction && now >= game.activeAction.endsAt && game.phase === 'playing') {
-      const settled = settleAction(game, game.activeAction.kind, game.activeAction.difficulty)
+    if (game.running && game.activeAction && !game.activeAction.pausedAt && now >= game.activeAction.endsAt && game.phase === 'playing') {
+      const settled = settleAction(game, game.activeAction.kind, game.activeAction.difficulty, game.activeAction.recipeId)
       game = settled.game
     }
     game = startPlannedAction(game, now)
@@ -140,9 +175,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current || current.phase !== 'playing') return
     const now = Date.now()
     const prepared = running
-      ? { ...current, running: true, idleMode: false, lastUpdatedAt: now }
-      : { ...applyOnlineElapsed(current, now), running: false, idleMode: false }
-    const game = startPlannedAction(prepared, now)
+      ? { ...current, running: true, idleMode: false, activeAction: resumeActiveAction(current, now), lastUpdatedAt: now }
+      : (() => {
+        const progressed = applyOnlineElapsed(current, now)
+        return { ...progressed, running: false, idleMode: false, activeAction: pauseActiveAction(progressed, now) }
+      })()
+    const game = running ? startPlannedAction(prepared, now) : prepared
     persist(game)
     set({ game })
   },
@@ -160,7 +198,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const current = get().game
     if (!current || current.phase !== 'playing') return
     const now = Date.now()
-    const game = startPlannedAction({ ...applyOnlineElapsed(current, now), running: idleMode || current.running, idleMode, lastUpdatedAt: now }, now)
+    const progressed = applyOnlineElapsed(current, now)
+    const prepared = idleMode
+      ? { ...progressed, running: true, idleMode: true, activeAction: resumeActiveAction(progressed, now), lastUpdatedAt: now }
+      : { ...progressed, idleMode: false, lastUpdatedAt: now }
+    const game = startPlannedAction(prepared, now)
     persist(game)
     set({ game })
   },
@@ -177,6 +219,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ game })
   },
 
+  setAlchemyRecipe: (recipeId) => {
+    const current = get().game
+    const recipe = pillRecipeById(recipeId)
+    if (!current || current.phase !== 'playing' || current.realmIndex < recipe.unlockRealm) return
+    const now = Date.now()
+    const selected = { ...applyOnlineElapsed(current, now), alchemyRecipeId: recipe.id }
+    const game = startPlannedAction(selected, now)
+    persist(game)
+    set({ game })
+  },
+
   resolveEncounter: (choice) => {
     const current = get().game
     if (!current || !current.pendingEncounter) return
@@ -187,10 +240,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ game })
   },
 
-  takePill: () => {
+  takePill: (recipeId) => {
     const current = get().game
     if (!current || current.phase !== 'playing') return
-    const taken = takePill(current)
+    const taken = takePill(current, recipeId)
     persist(taken.game)
     set({ game: taken.game })
   },

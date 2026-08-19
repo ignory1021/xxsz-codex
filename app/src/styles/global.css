@@ -706,6 +706,45 @@ fieldset {
   background: linear-gradient(90deg, rgba(159, 59, 50, 0.06), transparent);
 }
 
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.recipe-option {
+  min-height: 52px;
+  padding: 7px 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  font-family: "Kaiti SC", "STKaiti", serif;
+}
+
+.recipe-option span,
+.recipe-option small {
+  display: block;
+}
+
+.recipe-option span {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.recipe-option small {
+  margin-top: 3px;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+  font-size: 9px;
+}
+
+.recipe-option.active {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+  background: rgba(159, 59, 50, 0.06);
+}
+
 .recipe-card {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

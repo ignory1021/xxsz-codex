@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DIFFICULTIES, REALMS } from '../data/gameData'
+import { DIFFICULTIES, PILL_RECIPES, REALMS } from '../data/gameData'
 import { breakthroughChance, lifespanYears, qiRequirement } from '../core/game'
 import { formatAge, formatDuration } from '../core/time'
 import type { ActionKind } from '../core/types'
@@ -23,12 +23,18 @@ function DifficultyPicker({ kind }: { kind: ActionKind }) {
   const active = game.activeAction
   const activeConfig = active ? DIFFICULTIES.find((item) => item.id === active.difficulty) : null
   const planConfig = game.actionPlan ? DIFFICULTIES.find((item) => item.id === game.actionPlan?.difficulty) : null
-  const blocked = game.actionPlan?.kind === 'alchemy' && game.inventory.herbs < 2
-  const queued = Boolean(active && game.actionPlan && (active.kind !== game.actionPlan.kind || active.difficulty !== game.actionPlan.difficulty))
+  const recipe = PILL_RECIPES.find((item) => item.id === game.alchemyRecipeId) ?? PILL_RECIPES[0]
+  const blocked = game.actionPlan?.kind === 'alchemy'
+    && (game.inventory.herbs < recipe.herbsCost || game.inventory.ore < recipe.oreCost)
+  const queued = Boolean(active && game.actionPlan && (
+    active.kind !== game.actionPlan.kind
+    || active.difficulty !== game.actionPlan.difficulty
+    || (active.kind === 'alchemy' && active.recipeId !== game.alchemyRecipeId)
+  ))
 
   let planText = '选定方向与难度后，岁序运行时会自动启程。'
   if (blocked) {
-    planText = '灵草不足，炼丹计划暂缓；可改选游历补充材料。'
+    planText = `${recipe.name}材料不足，炼丹计划暂缓；可改选游历补充材料。`
   } else if (active && queued && planConfig) {
     planText = `此程结束后，将自动转为${ACTION_LABELS[game.actionPlan!.kind]}·${planConfig.name}。`
   } else if (active && activeConfig) {
@@ -124,30 +130,47 @@ function AdventurePage() {
 function AlchemyPage() {
   const game = useGameStore((state) => state.game)!
   const takePill = useGameStore((state) => state.takePill)
+  const setAlchemyRecipe = useGameStore((state) => state.setAlchemyRecipe)
+  const unlockedRecipes = PILL_RECIPES.filter((recipe) => recipe.unlockRealm <= game.realmIndex)
+  const recipe = PILL_RECIPES.find((item) => item.id === game.alchemyRecipeId) ?? PILL_RECIPES[0]
+  const pillCount = game.inventory.pills[recipe.id] ?? 0
 
   return (
     <section className="page-panel reveal" aria-labelledby="alchemy-title">
       <div className="scene-copy alchemy-copy">
-        <p className="eyebrow">已得丹方之一</p>
-        <h2 id="alchemy-title">培元丹</h2>
-        <p>青灵草二株，以文火徐炼。丹成可固本培元，亦可在突破时护住一线道基。</p>
+        <p className="eyebrow">{REALMS[game.realmIndex].name}已解锁 {unlockedRecipes.length} 种丹方</p>
+        <h2 id="alchemy-title">{recipe.name}</h2>
+        <p>{recipe.description}</p>
+      </div>
+      <div className="recipe-grid" aria-label="已解锁丹方">
+        {unlockedRecipes.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className={item.id === recipe.id ? 'recipe-option active' : 'recipe-option'}
+            onClick={() => setAlchemyRecipe(item.id)}
+          >
+            <span>{item.name}</span>
+            <small>{item.pillQi.toLocaleString()} 灵气</small>
+          </button>
+        ))}
       </div>
       <div className="recipe-card">
         <div>
           <span className="material-symbol">艹</span>
-          <p>灵草</p>
-          <strong>{game.inventory.herbs} / 2</strong>
+          <p>灵草 {recipe.herbsCost} · 灵矿 {recipe.oreCost}</p>
+          <strong>{game.inventory.herbs} / {recipe.herbsCost} · {game.inventory.ore} / {recipe.oreCost}</strong>
         </div>
         <i>入炉</i>
         <div>
           <span className="material-symbol pill-symbol">丹</span>
-          <p>培元丹</p>
-          <strong>已有 {game.inventory.pills}</strong>
+          <p>{recipe.name}</p>
+          <strong>已有 {pillCount}</strong>
         </div>
       </div>
-      <button className="pill-use-button" type="button" disabled={game.inventory.pills < 1} onClick={takePill}>
-        <span>服用培元丹</span>
-        <small>灵气 +50</small>
+      <button className="pill-use-button" type="button" disabled={pillCount < 1} onClick={() => takePill(recipe.id)}>
+        <span>服用{recipe.name}</span>
+        <small>灵气 +{recipe.pillQi.toLocaleString()}</small>
       </button>
       <DifficultyPicker kind="alchemy" />
     </section>
@@ -214,7 +237,7 @@ function TimeControls() {
         {game.running && !game.idleMode ? '暂停' : '开始'}
       </button>
       <div className="speed-group" aria-label="岁月倍率">
-        {([1, 3, 5] as const).map((speed) => (
+        {([1, 5, 10] as const).map((speed) => (
           <button key={speed} type="button" className={game.speed === speed && !game.idleMode ? 'active' : ''} onClick={() => setSpeed(speed)}>
             ×{speed}
           </button>
@@ -231,13 +254,14 @@ function ActionOverlay() {
   const game = useGameStore((state) => state.game)!
   if (!game.activeAction) return null
   const total = game.activeAction.endsAt - game.activeAction.startedAt
-  const progress = Math.min(Math.max(((Date.now() - game.activeAction.startedAt) / total) * 100, 0), 100)
+  const clock = game.activeAction.pausedAt ?? Date.now()
+  const progress = Math.min(Math.max(((clock - game.activeAction.startedAt) / total) * 100, 0), 100)
   const labels: Record<ActionKind, string> = { cultivate: '灵气入脉', adventure: '行于山水', alchemy: '炉火正盛' }
 
   return (
     <div className="action-overlay" role="status">
       <div className="action-orbit"><i style={{ '--action-progress': `${progress * 3.6}deg` } as React.CSSProperties} /></div>
-      <div><strong>{labels[game.activeAction.kind]}</strong><span>{Math.round(progress)}%</span></div>
+      <div><strong>{labels[game.activeAction.kind]}</strong><span>{game.activeAction.pausedAt ? '已暂停' : `${Math.round(progress)}%`}</span></div>
     </div>
   )
 }

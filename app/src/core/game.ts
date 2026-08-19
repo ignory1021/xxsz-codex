@@ -1,4 +1,4 @@
-import { ADVENTURE_FINDINGS, DIFFICULTIES, OPPORTUNITY_EVENTS, REALMS } from '../data/gameData'
+import { ADVENTURE_FINDINGS, DIFFICULTIES, EMPTY_PILL_STOCK, OPPORTUNITY_EVENTS, PILL_RECIPES, REALMS } from '../data/gameData'
 import { generateFriend, generateFriendName, generateSpiritRoot, pick, randomInt } from './random'
 import type {
   ActionKind,
@@ -9,6 +9,8 @@ import type {
   EncounterChoice,
   GameData,
   PendingEncounter,
+  PillId,
+  PillRecipe,
 } from './types'
 
 export function aptitudeMultiplier(aptitude: number): number {
@@ -57,7 +59,8 @@ export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData
     speed: 1,
     idleMode: false,
     lastUpdatedAt: now,
-    inventory: { herbs: 2, ore: 0, pills: 0 },
+    inventory: { herbs: 2, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
+    alchemyRecipeId: 'peiyuan',
     friends: [],
     chronicle: [birth],
     lineage: [],
@@ -140,28 +143,34 @@ export function applyAge(game: GameData, months: number): GameData {
   }
 }
 
-export function actionCostMonths(difficulty: Difficulty): number {
-  return DIFFICULTIES.find((item) => item.id === difficulty)?.months ?? 1
+export function pillRecipeById(id: PillId): PillRecipe {
+  return PILL_RECIPES.find((recipe) => recipe.id === id) ?? PILL_RECIPES[0]
 }
 
-export function takePill(game: GameData): { game: GameData; result: ActionResult } {
-  if (game.inventory.pills < 1) {
+function hasRecipeMaterials(game: GameData, recipe: PillRecipe): boolean {
+  return game.inventory.herbs >= recipe.herbsCost && game.inventory.ore >= recipe.oreCost
+}
+
+export function takePill(game: GameData, recipeId = game.alchemyRecipeId): { game: GameData; result: ActionResult } {
+  const recipe = pillRecipeById(recipeId)
+  const pillCount = game.inventory.pills[recipe.id] ?? 0
+  if (pillCount < 1) {
     return {
       game,
-      result: { kind: 'alchemy', title: '丹瓶已空', narrative: '囊中已无培元丹可服。', rewards: [] },
+      result: { kind: 'alchemy', title: '丹瓶已空', narrative: `囊中已无${recipe.name}可服。`, rewards: [] },
     }
   }
 
   const next = normalizeProgress({
     ...game,
-    qi: game.qi + 50,
-    inventory: { ...game.inventory, pills: game.inventory.pills - 1 },
+    qi: game.qi + recipe.pillQi,
+    inventory: { ...game.inventory, pills: { ...game.inventory.pills, [recipe.id]: pillCount - 1 } },
   })
   const result: ActionResult = {
     kind: 'alchemy',
-    title: '服用培元丹',
+    title: `服用${recipe.name}`,
     narrative: '丹药入腹，温润药力化作灵气归于丹田。',
-    rewards: ['灵气 +50'],
+    rewards: [`灵气 +${recipe.pillQi.toLocaleString()}`],
   }
   return { game: recordActionResult(next, result), result }
 }
@@ -230,7 +239,7 @@ function completeAction(game: GameData, result: ActionResult): GameData {
   return created ? { ...created.game, pendingEncounter: created.encounter, running: false } : recorded
 }
 
-export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty): { game: GameData; result: ActionResult } {
+export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty, recipeId = game.alchemyRecipeId): { game: GameData; result: ActionResult } {
   const difficultyConfig = DIFFICULTIES.find((item) => item.id === difficulty) ?? DIFFICULTIES[0]
   const root = game.character.spiritRoot
   const rootMultiplier = root.structureMultiplier * aptitudeMultiplier(root.aptitude)
@@ -266,8 +275,11 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     return { game: completeAction(next, result), result }
   }
 
-  if (game.inventory.herbs < 2) {
-    const result: ActionResult = { kind, title: '炉火未生', narrative: '药篓空空，尚缺两株灵草。', rewards: ['材料不足'] }
+  const recipe = pillRecipeById(recipeId)
+  if (game.realmIndex < recipe.unlockRealm || !hasRecipeMaterials(game, recipe)) {
+    const requirements = [`灵草 ${game.inventory.herbs}/${recipe.herbsCost}`]
+    if (recipe.oreCost > 0) requirements.push(`灵矿 ${game.inventory.ore}/${recipe.oreCost}`)
+    const result: ActionResult = { kind, title: '炉火未生', narrative: `${recipe.name}所需材料尚未备齐。`, rewards: requirements }
     return {
       game: recordActionResult({ ...game, activeAction: null }, result),
       result,
@@ -279,18 +291,22 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
   const qi = success ? Math.max(3, Math.round(difficultyConfig.baseQi * 0.35)) : 2
   const inventory = {
     ...game.inventory,
-    herbs: game.inventory.herbs - (success ? 2 : 1),
-    pills: game.inventory.pills + (success ? 1 : 0),
+    herbs: game.inventory.herbs - (success ? recipe.herbsCost : Math.max(1, Math.ceil(recipe.herbsCost / 2))),
+    ore: game.inventory.ore - (success ? recipe.oreCost : Math.floor(recipe.oreCost / 2)),
+    pills: {
+      ...game.inventory.pills,
+      [recipe.id]: (game.inventory.pills[recipe.id] ?? 0) + (success ? 1 : 0),
+    },
   }
   const next = normalizeProgress({ ...game, qi: game.qi + qi, inventory, activeAction: null })
-  const completed = success && game.inventory.pills === 0
-    ? { ...next, chronicle: addChronicle(next, 'alchemy', '初识丹火', '第一枚培元丹温润如玉，静卧炉中。') }
+  const completed = success && (game.inventory.pills[recipe.id] ?? 0) === 0
+    ? { ...next, chronicle: addChronicle(next, 'alchemy', `初成${recipe.name}`, `第一枚${recipe.name}温润如玉，静卧炉中。`) }
     : next
   const result: ActionResult = {
     kind,
-    title: success ? '丹成一品' : '炉中余烬',
+    title: success ? `${recipe.name}成丹` : '炉中余烬',
     narrative: success ? '丹炉轻鸣，药香自炉隙间漫出。' : '火候稍纵即逝，只余一缕焦苦药气。',
-    rewards: success ? ['培元丹 +1', `灵气 +${qi}`] : ['损失灵草 ×1', `灵气 +${qi}`],
+    rewards: success ? [`${recipe.name} +1`, `灵气 +${qi}`] : ['材料受损', `灵气 +${qi}`],
   }
   return { game: completeAction(completed, result), result }
 }
@@ -440,7 +456,8 @@ export function reincarnate(game: GameData, now = Date.now()): GameData {
     speed: 1,
     idleMode: false,
     lastUpdatedAt: now,
-    inventory: { herbs: 0, ore: 0, pills: 0 },
+    inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
+    alchemyRecipeId: 'peiyuan',
     friends: returningFriends,
     lineage,
     actionPlan: null,

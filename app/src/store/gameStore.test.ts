@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EMPTY_PILL_STOCK } from '../data/gameData'
 import { createNewGame, settleAction } from '../core/game'
-import { startPlannedAction } from './gameStore'
+import { pauseActiveAction, resumeActiveAction, startPlannedAction } from './gameStore'
 
 function gameFixture() {
   return createNewGame({ name: '测试修士', gender: '无定', personality: '豁达' }, 1)
@@ -15,6 +16,18 @@ describe('automatic action plans', () => {
     }, 1_000)
 
     expect(game.activeAction).toMatchObject({ kind: 'cultivate', difficulty: 'light', startedAt: 1_000 })
+    expect(game.ageMonths).toBe(0)
+  })
+
+  it('does not deduct lifespan when starting a longer action', () => {
+    const game = startPlannedAction({
+      ...gameFixture(),
+      running: true,
+      ageMonths: 17,
+      actionPlan: { kind: 'cultivate', difficulty: 'medium' },
+    }, 1_000)
+
+    expect(game.ageMonths).toBe(17)
   })
 
   it('continues the plan after an action settles', () => {
@@ -36,7 +49,7 @@ describe('automatic action plans', () => {
     const game = startPlannedAction({
       ...gameFixture(),
       running: true,
-      inventory: { herbs: 1, ore: 0, pills: 0 },
+      inventory: { herbs: 1, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
       actionPlan: { kind: 'alchemy', difficulty: 'light' },
     }, 1_000)
 
@@ -70,5 +83,17 @@ describe('automatic action plans', () => {
 
     expect(game.activeAction).toBeNull()
     expect(game.running).toBe(false)
+  })
+
+  it('freezes an active action while paused and resumes from the same progress', () => {
+    const base = {
+      ...gameFixture(),
+      activeAction: { kind: 'cultivate' as const, difficulty: 'light' as const, startedAt: 1_000, endsAt: 3_000 },
+    }
+    const paused = pauseActiveAction(base, 1_500)
+    const resumed = resumeActiveAction({ ...base, activeAction: paused }, 6_500)
+
+    expect(paused?.pausedAt).toBe(1_500)
+    expect(resumed).toMatchObject({ startedAt: 6_000, endsAt: 8_000, pausedAt: undefined })
   })
 })

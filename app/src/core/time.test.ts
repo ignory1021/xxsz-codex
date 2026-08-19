@@ -13,9 +13,9 @@ describe('month clock', () => {
     expect(second).toEqual({ months: 1, progress: 0 })
   })
 
-  it('applies x3 and x5 to age without changing the unit', () => {
-    expect(advanceMonthClock(1_000, 3, 0).months).toBe(1)
+  it('applies x5 and x10 to age without changing the unit', () => {
     expect(advanceMonthClock(600, 5, 0).months).toBe(1)
+    expect(advanceMonthClock(300, 10, 0).months).toBe(1)
   })
 })
 

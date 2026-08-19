@@ -1,4 +1,4 @@
-import type { DifficultyConfig, OpportunityTemplate, Personality, RealmConfig } from '../core/types'
+import type { DifficultyConfig, OpportunityTemplate, Personality, PillRecipe, RealmConfig } from '../core/types'
 
 export const REALMS: RealmConfig[] = [
   { name: '练气', lifespanYears: 70, lifespanLayerGainYears: 8, offlineCapYears: 30, qiStart: 100, qiEnd: 300, qiPerfect: 500, map: '青岚山谷' },
@@ -18,6 +18,30 @@ export const DIFFICULTIES: DifficultyConfig[] = [
   { id: 'heavy', name: '闭关', months: 12, baseQi: 200, durationMs: 5_600, unlockRealm: 1 },
   { id: 'extreme', name: '忘岁', months: 60, baseQi: 1_200, durationMs: 8_000, unlockRealm: 2 },
 ]
+
+export const PILL_RECIPES: PillRecipe[] = [
+  { id: 'peiyuan', name: '培元丹', unlockRealm: 0, herbsCost: 2, oreCost: 0, pillQi: 50, description: '温养经脉，适合初入仙途时稳固根基。' },
+  { id: 'ningyuan', name: '凝元丹', unlockRealm: 1, herbsCost: 3, oreCost: 1, pillQi: 180, description: '灵元凝练，可助筑基修士积蓄道基。' },
+  { id: 'jinsui', name: '金髓丹', unlockRealm: 2, herbsCost: 4, oreCost: 2, pillQi: 600, description: '药力如金浆入髓，温润金丹。' },
+  { id: 'yinghua', name: '婴华丹', unlockRealm: 3, herbsCost: 5, oreCost: 3, pillQi: 1_800, description: '一缕婴华归于紫府，滋养元婴灵性。' },
+  { id: 'huashen', name: '化神丹', unlockRealm: 4, herbsCost: 6, oreCost: 4, pillQi: 5_000, description: '神念澄明，炼化后可使元神更为凝实。' },
+  { id: 'xuling', name: '虚灵丹', unlockRealm: 5, herbsCost: 7, oreCost: 5, pillQi: 20_000, description: '药性缥缈，能引天外清灵之气入体。' },
+  { id: 'hedao', name: '合道丹', unlockRealm: 6, herbsCost: 8, oreCost: 6, pillQi: 100_000, description: '阴阳相济，使法身与大道再近一分。' },
+  { id: 'dacheng', name: '大乘丹', unlockRealm: 7, herbsCost: 9, oreCost: 7, pillQi: 500_000, description: '一丹如藏乾坤，补益大乘道果。' },
+  { id: 'bijie', name: '避劫丹', unlockRealm: 8, herbsCost: 10, oreCost: 8, pillQi: 2_000_000, description: '雷火淬成，蕴有抵御天威的一线药力。' },
+]
+
+export const EMPTY_PILL_STOCK = {
+  peiyuan: 0,
+  ningyuan: 0,
+  jinsui: 0,
+  yinghua: 0,
+  huashen: 0,
+  xuling: 0,
+  hedao: 0,
+  dacheng: 0,
+  bijie: 0,
+}
 
 export const PERSONALITIES: Personality[] = ['豪迈', '谨慎', '豁达', '温和', '孤僻', '清冷']
 

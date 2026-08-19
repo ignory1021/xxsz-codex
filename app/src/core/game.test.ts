@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EMPTY_PILL_STOCK } from '../data/gameData'
 import { applyAge, attemptBreakthrough, createNewGame, lifespanYears, normalizeProgress, qiRequirement, resolveEncounter, settleAction, takePill } from './game'
 import { generateFriend, generateSpiritRoot } from './random'
 
@@ -113,7 +114,7 @@ describe('encounter choices', () => {
 
   it('can trigger an opportunity after a completed alchemy action', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
-    const game = settleAction({ ...gameFixture(), inventory: { herbs: 2, ore: 0, pills: 0 } }, 'alchemy', 'light').game
+    const game = settleAction({ ...gameFixture(), inventory: { herbs: 2, ore: 0, pills: { ...EMPTY_PILL_STOCK } } }, 'alchemy', 'light').game
 
     expect(game.pendingEncounter?.kind).toBe('opportunity')
     random.mockRestore()
@@ -135,8 +136,8 @@ describe('friend generation', () => {
 
 describe('pills and breakthrough', () => {
   it('consumes a Peiyuan pill for its documented qi gain', () => {
-    const game = takePill({ ...gameFixture(), inventory: { herbs: 0, ore: 0, pills: 1 } }).game
-    expect(game.inventory.pills).toBe(0)
+    const game = takePill({ ...gameFixture(), inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, peiyuan: 1 } } }).game
+    expect(game.inventory.pills.peiyuan).toBe(0)
     expect(game.qi).toBe(50)
     expect(game.chronicle[0].title).toBe('服用培元丹')
   })
@@ -147,11 +148,11 @@ describe('pills and breakthrough', () => {
       ...gameFixture(),
       layer: 10,
       perfect: true,
-      inventory: { herbs: 0, ore: 0, pills: 1 },
+      inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, peiyuan: 1 } },
     }).game
 
     expect(game.realmIndex).toBe(1)
-    expect(game.inventory.pills).toBe(1)
+    expect(game.inventory.pills.peiyuan).toBe(1)
     random.mockRestore()
   })
 
@@ -169,6 +170,25 @@ describe('pills and breakthrough', () => {
     expect(game.realmIndex).toBe(1)
     expect(game.activeAction).toBeNull()
     expect(game.running).toBe(true)
+    random.mockRestore()
+  })
+
+  it('unlocks and brews the Gold Core recipe independently from Peiyuan pills', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const crafted = settleAction({
+      ...gameFixture(),
+      realmIndex: 2,
+      alchemyRecipeId: 'jinsui',
+      inventory: { herbs: 4, ore: 2, pills: { ...EMPTY_PILL_STOCK } },
+    }, 'alchemy', 'light', 'jinsui').game
+    const taken = takePill({
+      ...gameFixture(),
+      realmIndex: 2,
+      inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, jinsui: 1 } },
+    }, 'jinsui').game
+
+    expect(crafted.inventory.pills.jinsui).toBe(1)
+    expect(taken.qi).toBe(600)
     random.mockRestore()
   })
 })
