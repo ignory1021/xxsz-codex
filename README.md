@@ -2,7 +2,7 @@
 
 一款手机优先的实时挂机修仙文字游戏。
 
-> **当前版本**：未发布（MVP 开发中）
+> **当前版本**：v0.0.1（MVP 试玩版）
 > **在线试玩**：[打开 GitHub Pages Demo](https://ignory1021.github.io/xxsz-codex/)
 > **设计文档**：[设计文档/README.md](./设计文档/README.md)
 > **AI 工作约定**：[AGENTS.md](./AGENTS.md)
