@@ -173,7 +173,7 @@ describe('pills and breakthrough', () => {
     random.mockRestore()
   })
 
-  it('unlocks and brews the Gold Core recipe independently from Peiyuan pills', () => {
+  it('unlocks and brews the Gold Core purification recipe independently from Peiyuan pills', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     const crafted = settleAction({
       ...gameFixture(),
@@ -184,12 +184,48 @@ describe('pills and breakthrough', () => {
     const taken = takePill({
       ...gameFixture(),
       realmIndex: 2,
+      character: {
+        ...gameFixture().character,
+        spiritRoot: { name: '三灵根', elements: ['金', '木', '水'], aptitude: 6, structureMultiplier: 1 },
+      },
       inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, jinsui: 1 } },
     }, 'jinsui').game
 
     expect(crafted.inventory.pills.jinsui).toBe(1)
-    expect(taken.qi).toBe(600)
+    expect(taken.character.spiritRoot.elements).toHaveLength(2)
     random.mockRestore()
+  })
+
+  it('stores a breakthrough bonus until the next manual attempt', () => {
+    const prepared = takePill({
+      ...gameFixture(),
+      realmIndex: 6,
+      inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, hedao: 1 } },
+    }, 'hedao').game
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.2)
+    const attempted = attemptBreakthrough({ ...prepared, layer: 10, perfect: true }).game
+
+    expect(prepared.breakthroughBonus).toBe(0.15)
+    expect(attempted.breakthroughBonus).toBe(0)
+    expect(attempted.realmIndex).toBe(7)
+    random.mockRestore()
+  })
+
+  it('grants forty percent additional qi while a companion joins the action', () => {
+    const base = gameFixture()
+    const companion = {
+      soulId: 'companion-test',
+      name: '顾长风',
+      title: '负剑游人',
+      personality: '豪迈' as const,
+      affection: 20,
+      metInLife: 1,
+      memory: '',
+    }
+    const solo = settleAction(base, 'cultivate', 'light').game
+    const together = settleAction({ ...base, friends: [companion], companionSoulId: companion.soulId }, 'cultivate', 'light', 'peiyuan', companion.soulId).game
+
+    expect(together.qi).toBe(solo.qi + Math.max(1, Math.round(solo.qi * 0.4)))
   })
 })
 

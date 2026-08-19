@@ -20,15 +20,15 @@ export const DIFFICULTIES: DifficultyConfig[] = [
 ]
 
 export const PILL_RECIPES: PillRecipe[] = [
-  { id: 'peiyuan', name: '培元丹', unlockRealm: 0, herbsCost: 2, oreCost: 0, pillQi: 50, description: '温养经脉，适合初入仙途时稳固根基。' },
-  { id: 'ningyuan', name: '凝元丹', unlockRealm: 1, herbsCost: 3, oreCost: 1, pillQi: 180, description: '灵元凝练，可助筑基修士积蓄道基。' },
-  { id: 'jinsui', name: '金髓丹', unlockRealm: 2, herbsCost: 4, oreCost: 2, pillQi: 600, description: '药力如金浆入髓，温润金丹。' },
-  { id: 'yinghua', name: '婴华丹', unlockRealm: 3, herbsCost: 5, oreCost: 3, pillQi: 1_800, description: '一缕婴华归于紫府，滋养元婴灵性。' },
-  { id: 'huashen', name: '化神丹', unlockRealm: 4, herbsCost: 6, oreCost: 4, pillQi: 5_000, description: '神念澄明，炼化后可使元神更为凝实。' },
-  { id: 'xuling', name: '虚灵丹', unlockRealm: 5, herbsCost: 7, oreCost: 5, pillQi: 20_000, description: '药性缥缈，能引天外清灵之气入体。' },
-  { id: 'hedao', name: '合道丹', unlockRealm: 6, herbsCost: 8, oreCost: 6, pillQi: 100_000, description: '阴阳相济，使法身与大道再近一分。' },
-  { id: 'dacheng', name: '大乘丹', unlockRealm: 7, herbsCost: 9, oreCost: 7, pillQi: 500_000, description: '一丹如藏乾坤，补益大乘道果。' },
-  { id: 'bijie', name: '避劫丹', unlockRealm: 8, herbsCost: 10, oreCost: 8, pillQi: 2_000_000, description: '雷火淬成，蕴有抵御天威的一线药力。' },
+  { id: 'peiyuan', name: '培元丹', unlockRealm: 0, herbsCost: 2, oreCost: 0, effect: 'qi', effectValue: 50, description: '温养经脉，适合初入仙途时稳固根基。' },
+  { id: 'ningyuan', name: '凝元丹', unlockRealm: 1, herbsCost: 3, oreCost: 1, effect: 'qi', effectValue: 200, description: '灵元凝练，可助筑基修士积蓄道基。' },
+  { id: 'jinsui', name: '净灵丹', unlockRealm: 2, herbsCost: 4, oreCost: 2, effect: 'purify', effectValue: 1, description: '洗去一分驳杂灵性，使灵根更为纯粹。' },
+  { id: 'yinghua', name: '悟道丹', unlockRealm: 3, herbsCost: 5, oreCost: 3, effect: 'insight', effectValue: 2, description: '一缕道韵归于识海，可助元婴参悟天地。' },
+  { id: 'huashen', name: '延寿丹', unlockRealm: 4, herbsCost: 6, oreCost: 4, effect: 'lifespan', effectValue: 20, description: '药性绵长，能为此世再续一段寿元。' },
+  { id: 'xuling', name: '虚灵丹', unlockRealm: 5, herbsCost: 7, oreCost: 5, effect: 'qi', effectValue: 20_000, description: '药性缥缈，能引天外清灵之气入体。' },
+  { id: 'hedao', name: '破境丹', unlockRealm: 6, herbsCost: 8, oreCost: 6, effect: 'breakthrough', effectValue: 0.15, description: '将药力封入道基，为下一次叩关护住一线清明。' },
+  { id: 'dacheng', name: '洗髓丹', unlockRealm: 7, herbsCost: 9, oreCost: 7, effect: 'aptitude', effectValue: 1, description: '重洗经脉根骨，缓慢提升灵根资质。' },
+  { id: 'bijie', name: '避劫丹', unlockRealm: 8, herbsCost: 10, oreCost: 8, effect: 'breakthrough', effectValue: 0.3, description: '雷火淬成，蕴有抵御天威的一线药力。' },
 ]
 
 export const EMPTY_PILL_STOCK = {

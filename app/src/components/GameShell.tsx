@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { DIFFICULTIES, PILL_RECIPES, REALMS } from '../data/gameData'
-import { breakthroughChance, lifespanYears, qiRequirement } from '../core/game'
+import { breakthroughChance, lifespanYears, pillEffectText, qiRequirement } from '../core/game'
 import { formatAge, formatDuration } from '../core/time'
-import type { ActionKind } from '../core/types'
+import type { ActionKind, Difficulty } from '../core/types'
 import { useGameStore } from '../store/gameStore'
 
 type Tab = 'cultivate' | 'adventure' | 'alchemy' | 'friends'
@@ -15,6 +15,7 @@ const TAB_LABELS: Array<{ id: Tab; label: string; mark: string }> = [
 ]
 
 const ACTION_LABELS: Record<ActionKind, string> = { cultivate: '修行', adventure: '游历', alchemy: '炼丹' }
+const DIFFICULTY_INTENSITY: Record<Difficulty, string> = { light: '短程', medium: '常程', heavy: '长程', extreme: '极程' }
 
 function DifficultyPicker({ kind }: { kind: ActionKind }) {
   const game = useGameStore((state) => state.game)!
@@ -30,6 +31,7 @@ function DifficultyPicker({ kind }: { kind: ActionKind }) {
     active.kind !== game.actionPlan.kind
     || active.difficulty !== game.actionPlan.difficulty
     || (active.kind === 'alchemy' && active.recipeId !== game.alchemyRecipeId)
+    || active.companionSoulId !== game.companionSoulId
   ))
 
   let planText = '选定方向与难度后，岁序运行时会自动启程。'
@@ -63,7 +65,7 @@ function DifficultyPicker({ kind }: { kind: ActionKind }) {
               onClick={() => setActionPlan(kind, difficulty.id)}
             >
               <span>{difficulty.name}</span>
-              <small>{locked ? `${REALMS[difficulty.unlockRealm].name}解锁` : `耗 ${formatAge(difficulty.months)}`}</small>
+              <small>{locked ? `${REALMS[difficulty.unlockRealm].name}解锁` : DIFFICULTY_INTENSITY[difficulty.id]}</small>
             </button>
           )
         })}
@@ -94,9 +96,12 @@ function CultivationPage() {
         </div>
         <div className="qi-track"><i style={{ width: `${progress}%` }} /></div>
         {game.perfect && (
-          <button className="breakthrough-button" type="button" onClick={breakthrough}>
-            {nextRealm ? `尝试突破至${nextRealm.name}` : '尝试破界飞升'} · 成功率 {Math.round(breakthroughChance(game) * 100)}%
-          </button>
+          <>
+            <button className="breakthrough-button" type="button" onClick={breakthrough}>
+              {nextRealm ? `尝试突破至${nextRealm.name}` : '尝试破界飞升'} · 成功率 {Math.round(breakthroughChance(game) * 100)}%
+            </button>
+            {game.breakthroughBonus > 0 && <p className="breakthrough-note">丹药护持：下次突破 +{Math.round(game.breakthroughBonus * 100)}%</p>}
+          </>
         )}
       </div>
       <DifficultyPicker kind="cultivate" />
@@ -151,7 +156,7 @@ function AlchemyPage() {
             onClick={() => setAlchemyRecipe(item.id)}
           >
             <span>{item.name}</span>
-            <small>{item.pillQi.toLocaleString()} 灵气</small>
+            <small>{pillEffectText(item)}</small>
           </button>
         ))}
       </div>
@@ -170,7 +175,7 @@ function AlchemyPage() {
       </div>
       <button className="pill-use-button" type="button" disabled={pillCount < 1} onClick={() => takePill(recipe.id)}>
         <span>服用{recipe.name}</span>
-        <small>灵气 +{recipe.pillQi.toLocaleString()}</small>
+        <small>{pillEffectText(recipe)}</small>
       </button>
       <DifficultyPicker kind="alchemy" />
     </section>
@@ -179,6 +184,7 @@ function AlchemyPage() {
 
 function FriendsPage() {
   const game = useGameStore((state) => state.game)!
+  const setCompanion = useGameStore((state) => state.setCompanion)
 
   return (
     <section className="page-panel reveal" aria-labelledby="friends-title">
@@ -194,8 +200,10 @@ function FriendsPage() {
         </div>
       ) : (
         <div className="friend-list">
-          {game.friends.map((friend) => (
-            <article key={friend.soulId} className="friend-card">
+          {game.friends.map((friend) => {
+            const accompanying = game.companionSoulId === friend.soulId
+            return (
+            <article key={friend.soulId} className={accompanying ? 'friend-card accompanying' : 'friend-card'}>
               <div className="friend-avatar">{friend.name.slice(-1)}</div>
               <div>
                 <h3>{friend.name}</h3>
@@ -203,8 +211,12 @@ function FriendsPage() {
                 <div className="affection-track"><i style={{ width: `${Math.max(friend.affection, 4)}%` }} /></div>
               </div>
               <strong>{friend.affection}</strong>
+              <button type="button" className={accompanying ? 'companion-button active' : 'companion-button'} onClick={() => setCompanion(accompanying ? null : friend.soulId)}>
+                {accompanying ? '同行中' : '邀同行'}
+              </button>
             </article>
-          ))}
+            )
+          })}
         </div>
       )}
       <div className="chronicle-preview">

@@ -1,5 +1,5 @@
 import { ADVENTURE_FINDINGS, DIFFICULTIES, EMPTY_PILL_STOCK, OPPORTUNITY_EVENTS, PILL_RECIPES, REALMS } from '../data/gameData'
-import { generateFriend, generateFriendName, generateSpiritRoot, pick, randomInt } from './random'
+import { generateFriend, generateFriendName, generateSpiritRoot, improveSpiritRootAptitude, pick, purifySpiritRoot, randomInt } from './random'
 import type {
   ActionKind,
   ActionResult,
@@ -7,6 +7,7 @@ import type {
   ChronicleEntry,
   Difficulty,
   EncounterChoice,
+  Friend,
   GameData,
   PendingEncounter,
   PillId,
@@ -28,9 +29,9 @@ export function qiRequirement(realmIndex: number, layer: number, perfect: boolea
   return Math.round(realm.qiStart + (realm.qiEnd - realm.qiStart) * progress)
 }
 
-export function lifespanYears(game: Pick<GameData, 'realmIndex' | 'layer'>): number {
+export function lifespanYears(game: Pick<GameData, 'realmIndex' | 'layer'> & Partial<Pick<GameData, 'lifespanBonusYears'>>): number {
   const realm = REALMS[game.realmIndex]
-  return realm.lifespanYears + (game.layer - 1) * realm.lifespanLayerGainYears
+  return realm.lifespanYears + (game.layer - 1) * realm.lifespanLayerGainYears + (game.lifespanBonusYears ?? 0)
 }
 
 export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData {
@@ -61,6 +62,9 @@ export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData
     lastUpdatedAt: now,
     inventory: { herbs: 2, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
     alchemyRecipeId: 'peiyuan',
+    breakthroughBonus: 0,
+    lifespanBonusYears: 0,
+    companionSoulId: null,
     friends: [],
     chronicle: [birth],
     lineage: [],
@@ -147,6 +151,17 @@ export function pillRecipeById(id: PillId): PillRecipe {
   return PILL_RECIPES.find((recipe) => recipe.id === id) ?? PILL_RECIPES[0]
 }
 
+export function pillEffectText(recipe: PillRecipe): string {
+  switch (recipe.effect) {
+    case 'qi': return `灵气 +${recipe.effectValue.toLocaleString()}`
+    case 'breakthrough': return `下次突破 +${Math.round(recipe.effectValue * 100)}%`
+    case 'purify': return '灵根数 -1'
+    case 'insight': return `悟性 +${recipe.effectValue}`
+    case 'lifespan': return `寿元上限 +${recipe.effectValue} 年`
+    case 'aptitude': return `资质 +${recipe.effectValue}`
+  }
+}
+
 function hasRecipeMaterials(game: GameData, recipe: PillRecipe): boolean {
   return game.inventory.herbs >= recipe.herbsCost && game.inventory.ore >= recipe.oreCost
 }
@@ -161,16 +176,40 @@ export function takePill(game: GameData, recipeId = game.alchemyRecipeId): { gam
     }
   }
 
-  const next = normalizeProgress({
-    ...game,
-    qi: game.qi + recipe.pillQi,
-    inventory: { ...game.inventory, pills: { ...game.inventory.pills, [recipe.id]: pillCount - 1 } },
-  })
+  if (recipe.effect === 'purify' && game.character.spiritRoot.elements.length <= 1) {
+    return { game, result: { kind: 'alchemy', title: '灵根已纯', narrative: '此身已是单灵根，净灵丹暂不能再精炼根骨。', rewards: [] } }
+  }
+  if (recipe.effect === 'aptitude' && game.character.spiritRoot.aptitude >= 10) {
+    return { game, result: { kind: 'alchemy', title: '资质已极', narrative: '灵根资质已至极境，洗髓丹暂不能再提升。', rewards: [] } }
+  }
+
+  const consumed = { ...game, inventory: { ...game.inventory, pills: { ...game.inventory.pills, [recipe.id]: pillCount - 1 } } }
+  let next: GameData
+  switch (recipe.effect) {
+    case 'qi':
+      next = normalizeProgress({ ...consumed, qi: consumed.qi + recipe.effectValue })
+      break
+    case 'breakthrough':
+      next = { ...consumed, breakthroughBonus: Math.min(0.5, consumed.breakthroughBonus + recipe.effectValue) }
+      break
+    case 'purify':
+      next = { ...consumed, character: { ...consumed.character, spiritRoot: purifySpiritRoot(consumed.character.spiritRoot) } }
+      break
+    case 'insight':
+      next = { ...consumed, character: { ...consumed.character, insight: consumed.character.insight + recipe.effectValue } }
+      break
+    case 'lifespan':
+      next = { ...consumed, lifespanBonusYears: consumed.lifespanBonusYears + recipe.effectValue }
+      break
+    case 'aptitude':
+      next = { ...consumed, character: { ...consumed.character, spiritRoot: improveSpiritRootAptitude(consumed.character.spiritRoot) } }
+      break
+  }
   const result: ActionResult = {
     kind: 'alchemy',
     title: `服用${recipe.name}`,
-    narrative: '丹药入腹，温润药力化作灵气归于丹田。',
-    rewards: [`灵气 +${recipe.pillQi.toLocaleString()}`],
+    narrative: '丹药入腹，药力沿经脉徐徐化开。',
+    rewards: [pillEffectText(recipe)],
   }
   return { game: recordActionResult(next, result), result }
 }
@@ -205,14 +244,44 @@ function createOpportunityEncounter(game: GameData): EncounterCreation {
   }
 }
 
-function createEncounter(game: GameData, kind: ActionKind): EncounterCreation | null {
+function companionFor(game: GameData, soulId = game.companionSoulId): Friend | undefined {
+  return soulId ? game.friends.find((friend) => friend.soulId === soulId) : undefined
+}
+
+function applyCompanionQi(game: GameData, companionSoulId: string | null | undefined, qi: number): { qi: number; rewards: string[] } {
+  if (!companionFor(game, companionSoulId)) return { qi, rewards: [`灵气 +${qi}`] }
+  const bonus = Math.max(1, Math.round(qi * 0.4))
+  return { qi: qi + bonus, rewards: [`灵气 +${qi}`, `道友同行 +${bonus}`] }
+}
+
+function settleCompanionAffinity(game: GameData, companionSoulId: string | null | undefined): GameData {
+  const companion = companionFor(game, companionSoulId)
+  if (!companion) return game
+
+  const roll = Math.random()
+  const change = roll < 0.35 ? randomInt(1, 3) : roll < 0.5 ? -randomInt(1, 2) : 0
+  if (change === 0) return game
+
+  const affection = Math.max(-100, Math.min(100, companion.affection + change))
+  const text = change > 0
+    ? `此程默契渐生，${companion.name}对你的好感 +${change}。`
+    : `此程心意未合，${companion.name}对你的好感 ${change}。`
+  return {
+    ...game,
+    friends: game.friends.map((friend) => friend.soulId === companion.soulId ? { ...friend, affection, memory: text } : friend),
+    chronicle: addChronicle(game, 'friend', `同行·${companion.name}`, text),
+  }
+}
+
+function createEncounter(game: GameData, kind: ActionKind, companionSoulId?: string | null): EncounterCreation | null {
   if ((kind === 'cultivate' || kind === 'alchemy') && Math.random() < 0.08) {
     return createOpportunityEncounter(game)
   }
 
   if (kind === 'adventure') {
     const roll = Math.random()
-    if (roll < 0.12 && game.friends.length < 8) {
+    const friendChance = companionFor(game, companionSoulId) ? 0.048 : 0.12
+    if (roll < friendChance && game.friends.length < 8) {
       const friend = generateFriend(game.life, game.friends.map((item) => item.name))
       return {
         game,
@@ -225,7 +294,7 @@ function createEncounter(game: GameData, kind: ActionKind): EncounterCreation | 
         },
       }
     }
-    if (roll < 0.24) {
+    if (roll < friendChance + 0.12) {
       return createOpportunityEncounter(game)
     }
   }
@@ -233,46 +302,49 @@ function createEncounter(game: GameData, kind: ActionKind): EncounterCreation | 
   return null
 }
 
-function completeAction(game: GameData, result: ActionResult): GameData {
+function completeAction(game: GameData, result: ActionResult, companionSoulId?: string | null): GameData {
   const recorded = recordActionResult(game, result)
-  const created = createEncounter(recorded, result.kind)
-  return created ? { ...created.game, pendingEncounter: created.encounter, running: false } : recorded
+  const withAffinity = settleCompanionAffinity(recorded, companionSoulId)
+  const created = createEncounter(withAffinity, result.kind, companionSoulId)
+  return created ? { ...created.game, pendingEncounter: created.encounter, running: false } : withAffinity
 }
 
-export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty, recipeId = game.alchemyRecipeId): { game: GameData; result: ActionResult } {
+export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty, recipeId = game.alchemyRecipeId, companionSoulId = game.companionSoulId): { game: GameData; result: ActionResult } {
   const difficultyConfig = DIFFICULTIES.find((item) => item.id === difficulty) ?? DIFFICULTIES[0]
   const root = game.character.spiritRoot
   const rootMultiplier = root.structureMultiplier * aptitudeMultiplier(root.aptitude)
 
   if (kind === 'cultivate') {
-    const qi = Math.round(difficultyConfig.baseQi * rootMultiplier)
-    const next = normalizeProgress({ ...game, qi: game.qi + qi, activeAction: null })
+    const qiResult = applyCompanionQi(game, companionSoulId, Math.round(difficultyConfig.baseQi * rootMultiplier))
+    const next = normalizeProgress({ ...game, qi: game.qi + qiResult.qi, activeAction: null })
     const result: ActionResult = {
       kind,
       title: '吐纳归元',
       narrative: '灵气沿经脉徐徐流转，最终归于丹田。',
-      rewards: [`灵气 +${qi}`],
+      rewards: qiResult.rewards,
     }
     return {
-      game: completeAction(next, result),
+      game: completeAction(next, result, companionSoulId),
       result,
     }
   }
 
   if (kind === 'adventure') {
-    const herbs = randomInt(1, Math.max(1, Math.ceil(difficultyConfig.months / 12) + 1))
+    const companionAssists = Boolean(companionFor(game, companionSoulId) && Math.random() < 0.3)
+    const herbs = randomInt(1, Math.max(1, Math.ceil(difficultyConfig.months / 12) + 1)) + (companionAssists ? 1 : 0)
     const ore = Math.random() < 0.35 ? 1 : 0
-    const qi = Math.max(2, Math.round(difficultyConfig.baseQi * rootMultiplier * 0.25))
-    const rewards = [`灵气 +${qi}`, `灵草 +${herbs}`]
+    const qiResult = applyCompanionQi(game, companionSoulId, Math.max(2, Math.round(difficultyConfig.baseQi * rootMultiplier * 0.25)))
+    const rewards = [...qiResult.rewards, `灵草 +${herbs}`]
+    if (companionAssists) rewards.push('道友寻得额外材料')
     if (ore) rewards.push('灵矿 +1')
     const next = normalizeProgress({
       ...game,
-      qi: game.qi + qi,
+      qi: game.qi + qiResult.qi,
       inventory: { ...game.inventory, herbs: game.inventory.herbs + herbs, ore: game.inventory.ore + ore },
       activeAction: null,
     })
     const result: ActionResult = { kind, title: REALMS[game.realmIndex].map, narrative: pick(ADVENTURE_FINDINGS), rewards }
-    return { game: completeAction(next, result), result }
+    return { game: completeAction(next, result, companionSoulId), result }
   }
 
   const recipe = pillRecipeById(recipeId)
@@ -286,9 +358,10 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     }
   }
 
-  const successRate = Math.min(0.95, 0.8 - DIFFICULTIES.indexOf(difficultyConfig) * 0.1 + game.layer * 0.01)
+  const companionAssists = Boolean(companionFor(game, companionSoulId) && Math.random() < 0.2)
+  const successRate = Math.min(0.95, 0.8 - DIFFICULTIES.indexOf(difficultyConfig) * 0.1 + game.layer * 0.01 + (companionAssists ? 0.15 : 0))
   const success = Math.random() <= successRate
-  const qi = success ? Math.max(3, Math.round(difficultyConfig.baseQi * 0.35)) : 2
+  const qiResult = applyCompanionQi(game, companionSoulId, success ? Math.max(3, Math.round(difficultyConfig.baseQi * 0.35)) : 2)
   const inventory = {
     ...game.inventory,
     herbs: game.inventory.herbs - (success ? recipe.herbsCost : Math.max(1, Math.ceil(recipe.herbsCost / 2))),
@@ -298,7 +371,7 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
       [recipe.id]: (game.inventory.pills[recipe.id] ?? 0) + (success ? 1 : 0),
     },
   }
-  const next = normalizeProgress({ ...game, qi: game.qi + qi, inventory, activeAction: null })
+  const next = normalizeProgress({ ...game, qi: game.qi + qiResult.qi, inventory, activeAction: null })
   const completed = success && (game.inventory.pills[recipe.id] ?? 0) === 0
     ? { ...next, chronicle: addChronicle(next, 'alchemy', `初成${recipe.name}`, `第一枚${recipe.name}温润如玉，静卧炉中。`) }
     : next
@@ -306,9 +379,11 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     kind,
     title: success ? `${recipe.name}成丹` : '炉中余烬',
     narrative: success ? '丹炉轻鸣，药香自炉隙间漫出。' : '火候稍纵即逝，只余一缕焦苦药气。',
-    rewards: success ? [`${recipe.name} +1`, `灵气 +${qi}`] : ['材料受损', `灵气 +${qi}`],
+    rewards: success
+      ? [`${recipe.name} +1`, ...qiResult.rewards, ...(companionAssists ? ['道友炉火相助'] : [])]
+      : ['材料受损', ...qiResult.rewards, ...(companionAssists ? ['道友炉火相助'] : [])],
   }
-  return { game: completeAction(completed, result), result }
+  return { game: completeAction(completed, result, companionSoulId), result }
 }
 
 export function resolveEncounter(game: GameData, choice: EncounterChoice): GameData {
@@ -373,7 +448,7 @@ export function resolveEncounter(game: GameData, choice: EncounterChoice): GameD
 
 export function breakthroughChance(game: GameData): number {
   const rates = [0.9, 0.75, 0.6, 0.45, 0.3, 0.2, 0.15, 0.1, 0.05]
-  return Math.min(0.95, rates[game.realmIndex] + game.character.insight * 0.01)
+  return Math.min(0.95, rates[game.realmIndex] + game.character.insight * 0.01 + game.breakthroughBonus)
 }
 
 export function attemptBreakthrough(game: GameData): { game: GameData; result: ActionResult } {
@@ -382,9 +457,10 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
     return { game: recordActionResult(game, result), result }
   }
 
-  const prepared = { ...game, activeAction: null, idleMode: false }
+  const chance = breakthroughChance(game)
+  const prepared = { ...game, activeAction: null, idleMode: false, breakthroughBonus: 0 }
   const resumePlan = Boolean(prepared.actionPlan)
-  const success = Math.random() <= breakthroughChance(prepared)
+  const success = Math.random() <= chance
 
   if (success && prepared.realmIndex === REALMS.length - 1) {
     const ascended = {
@@ -458,6 +534,9 @@ export function reincarnate(game: GameData, now = Date.now()): GameData {
     lastUpdatedAt: now,
     inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
     alchemyRecipeId: 'peiyuan',
+    breakthroughBonus: 0,
+    lifespanBonusYears: 0,
+    companionSoulId: null,
     friends: returningFriends,
     lineage,
     actionPlan: null,

@@ -36,6 +36,7 @@ interface GameStore {
   setIdleMode: (idle: boolean) => void
   setActionPlan: (kind: ActionKind, difficulty: Difficulty) => void
   setAlchemyRecipe: (recipeId: PillId) => void
+  setCompanion: (soulId: string | null) => void
   resolveEncounter: (choice: EncounterChoice) => void
   takePill: (recipeId: PillId) => void
   breakthrough: () => void
@@ -94,6 +95,7 @@ export function startPlannedAction(game: GameData, now: number): GameData {
       startedAt: now,
       endsAt: now + config.durationMs * durationScale,
       recipeId: recipe?.id,
+      companionSoulId: game.companionSoulId,
     },
   }
 }
@@ -126,6 +128,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       speed,
       inventory: { ...saved.inventory, pills },
       alchemyRecipeId,
+      breakthroughBonus: saved.breakthroughBonus ?? 0,
+      lifespanBonusYears: saved.lifespanBonusYears ?? 0,
+      companionSoulId: saved.companionSoulId && saved.friends.some((friend) => friend.soulId === saved.companionSoulId) ? saved.companionSoulId : null,
       actionPlan: saved.actionPlan ?? null,
       pendingEncounter: saved.pendingEncounter ?? null,
       activeAction: null,
@@ -157,7 +162,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current) return
     let game = applyOnlineElapsed(current, now)
     if (game.running && game.activeAction && !game.activeAction.pausedAt && now >= game.activeAction.endsAt && game.phase === 'playing') {
-      const settled = settleAction(game, game.activeAction.kind, game.activeAction.difficulty, game.activeAction.recipeId)
+      const settled = settleAction(game, game.activeAction.kind, game.activeAction.difficulty, game.activeAction.recipeId, game.activeAction.companionSoulId)
       game = settled.game
     }
     game = startPlannedAction(game, now)
@@ -226,6 +231,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const now = Date.now()
     const selected = { ...applyOnlineElapsed(current, now), alchemyRecipeId: recipe.id }
     const game = startPlannedAction(selected, now)
+    persist(game)
+    set({ game })
+  },
+
+  setCompanion: (soulId) => {
+    const current = get().game
+    if (!current || current.phase !== 'playing') return
+    if (soulId && !current.friends.some((friend) => friend.soulId === soulId)) return
+    const game = { ...current, companionSoulId: soulId }
     persist(game)
     set({ game })
   },

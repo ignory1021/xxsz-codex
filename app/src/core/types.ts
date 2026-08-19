@@ -6,6 +6,7 @@ export type EncounterChoice = 'observe' | 'risk' | 'leave' | 'invite' | 'greet' 
 export type GameSpeed = 1 | 5 | 10
 export type GamePhase = 'playing' | 'dead' | 'ascended'
 export type PillId = 'peiyuan' | 'ningyuan' | 'jinsui' | 'yinghua' | 'huashen' | 'xuling' | 'hedao' | 'dacheng' | 'bijie'
+export type PillEffect = 'qi' | 'breakthrough' | 'purify' | 'insight' | 'lifespan' | 'aptitude'
 
 export interface SpiritRoot {
   name: string
@@ -82,7 +83,8 @@ export interface PillRecipe {
   unlockRealm: number
   herbsCost: number
   oreCost: number
-  pillQi: number
+  effect: PillEffect
+  effectValue: number
   description: string
 }
 
@@ -92,6 +94,7 @@ export interface ActiveAction {
   startedAt: number
   endsAt: number
   recipeId?: PillId
+  companionSoulId?: string | null
   pausedAt?: number
 }
 
@@ -147,6 +150,9 @@ export interface GameData {
   lastUpdatedAt: number
   inventory: Inventory
   alchemyRecipeId: PillId
+  breakthroughBonus: number
+  lifespanBonusYears: number
+  companionSoulId: string | null
   friends: Friend[]
   chronicle: ChronicleEntry[]
   lineage: LineageEntry[]

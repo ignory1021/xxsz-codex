@@ -9,18 +9,32 @@ export function pick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-function createSpiritRoot(count: number, aptitude: number): SpiritRoot {
-  const elements = [...ROOT_ELEMENTS].sort(() => Math.random() - 0.5).slice(0, count)
+function createSpiritRootFromElements(elements: string[], aptitude: number): SpiritRoot {
   const multipliers: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 1, 4: 0.75, 5: 0.5 }
   const labels: Record<number, string> = { 1: '单', 2: '双', 3: '三', 4: '四', 5: '五行杂' }
-  const label = count === 1 && aptitude >= 9 ? `天${elements[0]}灵根` : `${labels[count]}灵根`
+  const label = elements.length === 1 && aptitude >= 9 ? `天${elements[0]}灵根` : `${labels[elements.length]}灵根`
 
   return {
     name: label,
     elements,
     aptitude,
-    structureMultiplier: multipliers[count],
+    structureMultiplier: multipliers[elements.length],
   }
+}
+
+function createSpiritRoot(count: number, aptitude: number): SpiritRoot {
+  const elements = [...ROOT_ELEMENTS].sort(() => Math.random() - 0.5).slice(0, count)
+  return createSpiritRootFromElements(elements, aptitude)
+}
+
+export function purifySpiritRoot(root: SpiritRoot): SpiritRoot {
+  if (root.elements.length <= 1) return root
+  return createSpiritRootFromElements(root.elements.slice(0, -1), root.aptitude)
+}
+
+export function improveSpiritRootAptitude(root: SpiritRoot): SpiritRoot {
+  if (root.aptitude >= 10) return root
+  return createSpiritRootFromElements(root.elements, root.aptitude + 1)
 }
 
 export function generateSpiritRoot(previous?: SpiritRoot): SpiritRoot {

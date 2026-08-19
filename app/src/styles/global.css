@@ -560,6 +560,13 @@ fieldset {
   cursor: pointer;
 }
 
+.breakthrough-note {
+  margin: 8px 0 0;
+  color: var(--cinnabar);
+  font-size: 11px;
+  text-align: right;
+}
+
 .difficulty-section {
   margin-top: 22px;
 }
@@ -842,12 +849,33 @@ fieldset {
 
 .friend-card {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   gap: 12px;
   align-items: center;
   padding: 12px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.17);
+}
+
+.friend-card.accompanying {
+  border-color: rgba(49, 93, 109, 0.52);
+  background: rgba(49, 93, 109, 0.06);
+}
+
+.companion-button {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-family: "Kaiti SC", "STKaiti", serif;
+  font-size: 11px;
+}
+
+.companion-button.active {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: rgba(49, 93, 109, 0.08);
 }
 
 .friend-avatar {
