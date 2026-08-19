@@ -58,4 +58,17 @@ describe('automatic action plans', () => {
 
     expect(game.activeAction).toBeNull()
   })
+
+  it('does not start another action after reaching great perfection', () => {
+    const game = startPlannedAction({
+      ...gameFixture(),
+      running: true,
+      layer: 10,
+      perfect: true,
+      actionPlan: { kind: 'cultivate', difficulty: 'light' },
+    }, 1_000)
+
+    expect(game.activeAction).toBeNull()
+    expect(game.running).toBe(false)
+  })
 })

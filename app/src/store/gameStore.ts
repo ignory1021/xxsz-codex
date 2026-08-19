@@ -58,6 +58,7 @@ function applyOnlineElapsed(game: GameData, now: number): GameData {
 export function startPlannedAction(game: GameData, now: number): GameData {
   const plan = game.actionPlan
   if (!plan || !game.running || game.phase !== 'playing' || game.activeAction || game.pendingEncounter) return game
+  if (game.perfect) return { ...game, running: false, idleMode: false }
 
   const config = DIFFICULTIES.find((item) => item.id === plan.difficulty)
   if (!config || game.realmIndex < config.unlockRealm) return game
@@ -88,9 +89,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const now = Date.now()
     const elapsed = Math.max(now - saved.lastUpdatedAt, 0)
-    let game: GameData = { ...saved, actionPlan: saved.actionPlan ?? null, pendingEncounter: saved.pendingEncounter ?? null, activeAction: null, lastUpdatedAt: now }
+    let game: GameData = {
+      ...saved,
+      actionPlan: saved.actionPlan ?? null,
+      pendingEncounter: saved.pendingEncounter ?? null,
+      activeAction: null,
+      recentEncounterIds: saved.recentEncounterIds ?? [],
+      lastUpdatedAt: now,
+    }
+    if (game.perfect) {
+      game = { ...game, running: false, idleMode: false }
+    }
     let offlineReport: OfflineReport | null = null
-    if (saved.running && elapsed >= 3_000 && saved.phase === 'playing') {
+    if (game.running && elapsed >= 3_000 && game.phase === 'playing') {
       const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress, saved.layer)
       offlineReport = calculated
       game = normalizeProgress({ ...game, qi: game.qi + calculated.qiGained, monthProgress: calculated.progress })
@@ -186,7 +197,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   breakthrough: () => {
     const current = get().game
-    if (!current || current.activeAction || current.phase !== 'playing') return
+    if (!current || current.phase !== 'playing') return
     const attempted = attemptBreakthrough(current)
     persist(attempted.game)
     set({ game: attempted.game })

@@ -87,11 +87,18 @@ export interface ActionPlan {
   difficulty: Difficulty
 }
 
+export interface OpportunityTemplate {
+  id: string
+  title: string
+  narrative: string
+}
+
 export interface PendingEncounter {
   id: string
   kind: 'opportunity' | 'friend'
   title: string
   narrative: string
+  opportunity?: OpportunityTemplate
   friend?: Friend
 }
 
@@ -132,6 +139,7 @@ export interface GameData {
   actionPlan: ActionPlan | null
   pendingEncounter: PendingEncounter | null
   activeAction: ActiveAction | null
+  recentEncounterIds: string[]
 }
 
 export interface CharacterDraft {

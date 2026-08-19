@@ -1,4 +1,4 @@
-import type { DifficultyConfig, Personality, RealmConfig } from '../core/types'
+import type { DifficultyConfig, OpportunityTemplate, Personality, RealmConfig } from '../core/types'
 
 export const REALMS: RealmConfig[] = [
   { name: '练气', lifespanYears: 70, lifespanLayerGainYears: 8, offlineCapYears: 30, qiStart: 100, qiEnd: 300, qiPerfect: 500, map: '青岚山谷' },
@@ -23,11 +23,42 @@ export const PERSONALITIES: Personality[] = ['豪迈', '谨慎', '豁达', '温�
 
 export const ROOT_ELEMENTS = ['金', '木', '水', '火', '土']
 
-export const FRIEND_NAMES = ['谢无咎', '闻人雪', '陆观澜', '沈照微', '裴玄度', '晏青萝']
+export const FRIEND_SURNAMES = [
+  '顾', '沈', '陆', '谢', '闻人', '裴', '晏', '苏', '宁', '叶', '萧', '温',
+  '秦', '白', '柳', '宋', '霍', '程', '钟离', '姜', '商', '傅', '容', '燕',
+]
+
+export const FRIEND_GIVEN_NAMES = [
+  '长风', '照微', '观澜', '无咎', '青萝', '玄度', '停云', '知白', '藏秋', '明夷', '令仪', '怀瑾',
+  '云岫', '星河', '遥岑', '临川', '修远', '昭华', '清晏', '扶摇', '栖梧', '逐月', '寒山', '既明',
+]
 
 export const ADVENTURE_FINDINGS = [
   '石隙间生着一株叶脉泛青的灵草。',
   '溪声忽近，你在水底摸得一块温润灵玉。',
   '古树下埋着半截残简，字迹已不可辨。',
   '远处剑光一闪，有人与你遥遥见礼。',
+]
+
+export const OPPORTUNITY_EVENTS: OpportunityTemplate[] = [
+  { id: 'spirit-tablet', title: '灵光乍现', narrative: '吐纳将歇时，识海忽现一方残碑。碑文若隐若现，似在等待你的回应。' },
+  { id: 'misty-manor', title: '雾中遗府', narrative: '云雾深处，一扇半掩的石门浮现眼前。门内灵机流转，亦有难辨的凶险。' },
+  { id: 'moon-well', title: '月井回声', narrative: '山坳古井映出一轮白月，井底传来与你呼吸相合的低吟。' },
+  { id: 'sword-trace', title: '断崖剑痕', narrative: '绝壁上留有一道久不散去的剑痕，靠近时连风声都变得锋利。' },
+  { id: 'jade-butterfly', title: '玉蝶引路', narrative: '一只玉色灵蝶绕袖三匝，随后向密林深处翩然飞去。' },
+  { id: 'ancient-lamp', title: '荒祠孤灯', narrative: '废弃山祠中尚燃着一盏青灯，灯焰随你的心念忽明忽暗。' },
+  { id: 'dragon-pool', title: '龙潭雾起', narrative: '潭水无风自皱，水雾凝成旧日修士的模糊背影。' },
+  { id: 'star-sand', title: '星砂入梦', narrative: '夜行时有细碎星砂落在掌心，闭目便见一条陌生的登天路。' },
+  { id: 'empty-boat', title: '空舟渡岸', narrative: '江雾中漂来一叶无人的小舟，船头放着一枚温热的玉简。' },
+  { id: 'pine-guest', title: '松下棋局', narrative: '古松根旁残留半局黑白，棋子间隐有灵机牵引神识。' },
+  { id: 'thunder-stone', title: '雷纹奇石', narrative: '雨后山石裂开一道雷纹，指尖靠近时经脉微微发麻。' },
+  { id: 'snow-lotus', title: '雪谷幽莲', narrative: '寒谷尽头一株幽莲在雪中绽放，花心却藏着难以辨明的暗影。' },
+  { id: 'mirror-lake', title: '镜湖前尘', narrative: '湖面平滑如镜，映出的却不是此刻的你，而是一段陌生往事。' },
+  { id: 'wind-chime', title: '风铃古道', narrative: '荒道尽头悬着一串铜铃，铃声每响一次，四周灵气便浓上一分。' },
+  { id: 'cloud-ladder', title: '云阶半现', narrative: '晨雾散开时，山巅显出几级通往云中的石阶，转眼又将隐没。' },
+  { id: 'blood-maple', title: '赤枫传讯', narrative: '一片赤枫叶落入掌中，叶脉自行游走，拼出一段残缺的指引。' },
+  { id: 'bone-flute', title: '古笛余韵', narrative: '枯藤下埋着一支旧笛，未曾吹奏，耳边却已响起清越余韵。' },
+  { id: 'fire-rat', title: '火鼠献珠', narrative: '丹火将熄之际，一只赤毛小兽衔着黯淡珠子从炉后探出头来。' },
+  { id: 'river-lantern', title: '冥河灯影', narrative: '夜渡时河面飘来一盏未点的莲灯，灯中封着一缕淡淡神识。' },
+  { id: 'heavenly-script', title: '天书残页', narrative: '石缝中飞出半页金纸，其上符文流转，似乎只容一人参悟。' },
 ]

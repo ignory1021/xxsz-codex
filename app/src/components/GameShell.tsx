@@ -88,7 +88,7 @@ function CultivationPage() {
         </div>
         <div className="qi-track"><i style={{ width: `${progress}%` }} /></div>
         {game.perfect && (
-          <button className="breakthrough-button" type="button" disabled={Boolean(game.activeAction)} onClick={breakthrough}>
+          <button className="breakthrough-button" type="button" onClick={breakthrough}>
             {nextRealm ? `尝试突破至${nextRealm.name}` : '尝试破界飞升'} · 成功率 {Math.round(breakthroughChance(game) * 100)}%
           </button>
         )}
@@ -272,9 +272,9 @@ function EncounterSheet() {
   if (!encounter) return null
 
   const opportunityChoices = [
-    { id: 'observe' as const, label: '静观石刻' },
-    { id: 'risk' as const, label: '破禁探幽' },
-    { id: 'leave' as const, label: '收敛离去' },
+    { id: 'observe' as const, label: '静观参悟' },
+    { id: 'risk' as const, label: '冒险一试' },
+    { id: 'leave' as const, label: '谨慎离去' },
   ]
   const friendChoices = [
     { id: 'invite' as const, label: '执礼相邀' },

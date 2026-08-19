@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { applyAge, attemptBreakthrough, createNewGame, lifespanYears, normalizeProgress, qiRequirement, resolveEncounter, settleAction, takePill } from './game'
-import { generateSpiritRoot } from './random'
+import { generateFriend, generateSpiritRoot } from './random'
 
 function gameFixture() {
   return createNewGame({ name: '测试修士', gender: '无定', personality: '豁达' }, 1)
@@ -23,6 +23,21 @@ describe('realm progression', () => {
     const game = normalizeProgress({ ...gameFixture(), layer: 10, qi: 500 })
     expect(game.perfect).toBe(true)
     expect(game.qi).toBe(0)
+  })
+
+  it('pauses the automatic plan as soon as great perfection is reached', () => {
+    const game = normalizeProgress({
+      ...gameFixture(),
+      layer: 10,
+      qi: 500,
+      running: true,
+      idleMode: true,
+      activeAction: { kind: 'cultivate', difficulty: 'light', startedAt: 1, endsAt: 2 },
+    })
+
+    expect(game.perfect).toBe(true)
+    expect(game.running).toBe(false)
+    expect(game.activeAction).toBeNull()
   })
 })
 
@@ -81,6 +96,41 @@ describe('encounter choices', () => {
     expect(game.friends[0].affection).toBeLessThanOrEqual(-15)
     expect(game.chronicle[0].type).toBe('friend')
   })
+
+  it('does not repeat an opportunity from the previous three encounters', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const first = settleAction(gameFixture(), 'cultivate', 'light').game
+    const firstId = first.pendingEncounter?.opportunity?.id
+    const afterFirst = resolveEncounter(first, 'leave')
+    const second = settleAction(afterFirst, 'cultivate', 'light').game
+
+    expect(first.pendingEncounter?.kind).toBe('opportunity')
+    expect(second.pendingEncounter?.kind).toBe('opportunity')
+    expect(second.pendingEncounter?.opportunity?.id).not.toBe(firstId)
+    expect(second.recentEncounterIds).toHaveLength(2)
+    random.mockRestore()
+  })
+
+  it('can trigger an opportunity after a completed alchemy action', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const game = settleAction({ ...gameFixture(), inventory: { herbs: 2, ore: 0, pills: 0 } }, 'alchemy', 'light').game
+
+    expect(game.pendingEncounter?.kind).toBe('opportunity')
+    random.mockRestore()
+  })
+})
+
+describe('friend generation', () => {
+  it('uses a surname and given-name pool without repeating a known name', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const first = generateFriend(1)
+    const second = generateFriend(1, [first.name])
+
+    expect(first.name).not.toBe(second.name)
+    expect(first.name.length).toBeGreaterThanOrEqual(2)
+    expect(second.name.length).toBeGreaterThanOrEqual(2)
+    random.mockRestore()
+  })
 })
 
 describe('pills and breakthrough', () => {
@@ -102,6 +152,23 @@ describe('pills and breakthrough', () => {
 
     expect(game.realmIndex).toBe(1)
     expect(game.inventory.pills).toBe(1)
+    random.mockRestore()
+  })
+
+  it('allows a great-perfection breakthrough even when an old active action is present', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const game = attemptBreakthrough({
+      ...gameFixture(),
+      layer: 10,
+      perfect: true,
+      running: true,
+      actionPlan: { kind: 'cultivate', difficulty: 'light' },
+      activeAction: { kind: 'cultivate', difficulty: 'light', startedAt: 1, endsAt: 2 },
+    }).game
+
+    expect(game.realmIndex).toBe(1)
+    expect(game.activeAction).toBeNull()
+    expect(game.running).toBe(true)
     random.mockRestore()
   })
 })

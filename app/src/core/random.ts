@@ -1,4 +1,4 @@
-import { FRIEND_NAMES, PERSONALITIES, ROOT_ELEMENTS } from '../data/gameData'
+import { FRIEND_GIVEN_NAMES, FRIEND_SURNAMES, PERSONALITIES, ROOT_ELEMENTS } from '../data/gameData'
 import type { Friend, SpiritRoot } from './types'
 
 export function randomInt(min: number, max: number): number {
@@ -38,8 +38,16 @@ export function generateSpiritRoot(previous?: SpiritRoot): SpiritRoot {
   return createSpiritRoot(count, aptitude)
 }
 
-export function generateFriend(life: number): Friend {
-  const name = pick(FRIEND_NAMES)
+export function generateFriendName(existingNames: Iterable<string> = []): string {
+  const usedNames = new Set(existingNames)
+  const allNames = FRIEND_SURNAMES.flatMap((surname) => FRIEND_GIVEN_NAMES.map((givenName) => `${surname}${givenName}`))
+  const availableNames = allNames.filter((name) => !usedNames.has(name))
+
+  return pick(availableNames.length > 0 ? availableNames : allNames)
+}
+
+export function generateFriend(life: number, existingNames: Iterable<string> = []): Friend {
+  const name = generateFriendName(existingNames)
   return {
     soulId: `${name}-${Date.now()}-${randomInt(100, 999)}`,
     name,
