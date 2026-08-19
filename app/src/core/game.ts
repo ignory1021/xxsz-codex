@@ -54,6 +54,7 @@ export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData
     friends: [],
     chronicle: [birth],
     lineage: [],
+    actionPlan: null,
     activeAction: null,
   }
 }
@@ -122,6 +123,14 @@ export function actionCostMonths(difficulty: Difficulty): number {
   return DIFFICULTIES.find((item) => item.id === difficulty)?.months ?? 1
 }
 
+function recordActionResult(game: GameData, result: ActionResult): GameData {
+  const rewards = result.rewards.length > 0 ? `所得：${result.rewards.join('、')}。` : ''
+  return {
+    ...game,
+    chronicle: addChronicle(game, 'action', result.title, `${result.narrative}${rewards}`),
+  }
+}
+
 export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty): { game: GameData; result: ActionResult } {
   const difficultyConfig = DIFFICULTIES.find((item) => item.id === difficulty) ?? DIFFICULTIES[0]
   const root = game.character.spiritRoot
@@ -130,14 +139,15 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
   if (kind === 'cultivate') {
     const qi = Math.round(difficultyConfig.baseQi * rootMultiplier)
     const next = normalizeProgress({ ...game, qi: game.qi + qi, activeAction: null })
+    const result: ActionResult = {
+      kind,
+      title: '吐纳归元',
+      narrative: '灵气沿经脉徐徐流转，最终归于丹田。',
+      rewards: [`灵气 +${qi}`],
+    }
     return {
-      game: next,
-      result: {
-        kind,
-        title: '吐纳归元',
-        narrative: '灵气沿经脉徐徐流转，最终归于丹田。',
-        rewards: [`灵气 +${qi}`],
-      },
+      game: recordActionResult(next, result),
+      result,
     }
   }
 
@@ -163,16 +173,15 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
       chronicle,
       activeAction: null,
     })
-    return {
-      game: next,
-      result: { kind, title: REALMS[game.realmIndex].map, narrative: pick(ADVENTURE_FINDINGS), rewards },
-    }
+    const result: ActionResult = { kind, title: REALMS[game.realmIndex].map, narrative: pick(ADVENTURE_FINDINGS), rewards }
+    return { game: recordActionResult(next, result), result }
   }
 
   if (game.inventory.herbs < 2) {
+    const result: ActionResult = { kind, title: '炉火未生', narrative: '药篓空空，尚缺两株灵草。', rewards: ['材料不足'] }
     return {
-      game: { ...game, activeAction: null },
-      result: { kind, title: '炉火未生', narrative: '药篓空空，尚缺两株灵草。', rewards: ['材料不足'] },
+      game: recordActionResult({ ...game, activeAction: null }, result),
+      result,
     }
   }
 
@@ -185,17 +194,16 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     pills: game.inventory.pills + (success ? 1 : 0),
   }
   const next = normalizeProgress({ ...game, qi: game.qi + qi, inventory, activeAction: null })
-  return {
-    game: success
-      ? { ...next, chronicle: game.inventory.pills === 0 ? addChronicle(next, 'alchemy', '初识丹火', '第一枚培元丹温润如玉，静卧炉中。') : next.chronicle }
-      : next,
-    result: {
-      kind,
-      title: success ? '丹成一品' : '炉中余烬',
-      narrative: success ? '丹炉轻鸣，药香自炉隙间漫出。' : '火候稍纵即逝，只余一缕焦苦药气。',
-      rewards: success ? ['培元丹 +1', `灵气 +${qi}`] : ['损失灵草 ×1', `灵气 +${qi}`],
-    },
+  const completed = success && game.inventory.pills === 0
+    ? { ...next, chronicle: addChronicle(next, 'alchemy', '初识丹火', '第一枚培元丹温润如玉，静卧炉中。') }
+    : next
+  const result: ActionResult = {
+    kind,
+    title: success ? '丹成一品' : '炉中余烬',
+    narrative: success ? '丹炉轻鸣，药香自炉隙间漫出。' : '火候稍纵即逝，只余一缕焦苦药气。',
+    rewards: success ? ['培元丹 +1', `灵气 +${qi}`] : ['损失灵草 ×1', `灵气 +${qi}`],
   }
+  return { game: recordActionResult(completed, result), result }
 }
 
 export function breakthroughChance(game: GameData): number {
@@ -205,7 +213,8 @@ export function breakthroughChance(game: GameData): number {
 
 export function attemptBreakthrough(game: GameData): { game: GameData; result: ActionResult } {
   if (!game.perfect) {
-    return { game, result: { kind: 'cultivate', title: '道行未满', narrative: '周天尚未圆融，此时叩关仍嫌太早。', rewards: [] } }
+    const result: ActionResult = { kind: 'cultivate', title: '道行未满', narrative: '周天尚未圆融，此时叩关仍嫌太早。', rewards: [] }
+    return { game: recordActionResult(game, result), result }
   }
 
   const usedPill = game.inventory.pills > 0
@@ -220,7 +229,8 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
       inventory,
       chronicle: addChronicle(game, 'realm', '破界飞升', '雷海尽头天门洞开，此世仙途终得圆满。'),
     }
-    return { game: ascended, result: { kind: 'cultivate', title: '破界飞升', narrative: '九霄雷散，天门为你而开。', rewards: ['解锁结局：完美飞升'] } }
+    const result: ActionResult = { kind: 'cultivate', title: '破界飞升', narrative: '九霄雷散，天门为你而开。', rewards: ['解锁结局：完美飞升'] }
+    return { game: recordActionResult(ascended, result), result }
   }
 
   if (success) {
@@ -234,12 +244,14 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
       inventory,
       chronicle: addChronicle(game, 'realm', `突破·${REALMS[realmIndex].name}`, `灵台震荡之后，新境豁然开朗。`),
     }
-    return { game: next, result: { kind: 'cultivate', title: `踏入${REALMS[realmIndex].name}`, narrative: '旧境如壳碎去，天地灵机从未如此清晰。', rewards: [`寿元上限提升至 ${REALMS[realmIndex].lifespanYears} 年`] } }
+    const result: ActionResult = { kind: 'cultivate', title: `踏入${REALMS[realmIndex].name}`, narrative: '旧境如壳碎去，天地灵机从未如此清晰。', rewards: [`寿元上限提升至 ${REALMS[realmIndex].lifespanYears} 年`] }
+    return { game: recordActionResult(next, result), result }
   }
 
   const lost = randomInt(1, 3)
   const next = { ...game, layer: Math.max(7, 10 - lost + 1), perfect: false, qi: 0, inventory }
-  return { game: next, result: { kind: 'cultivate', title: '叩关未成', narrative: '心神一乱，灵气自周天溃散。所幸道基未毁，尚可重修。', rewards: [`境界跌落 ${lost} 层`] } }
+  const result: ActionResult = { kind: 'cultivate', title: '叩关未成', narrative: '心神一乱，灵气自周天溃散。所幸道基未毁，尚可重修。', rewards: [`境界跌落 ${lost} 层`] }
+  return { game: recordActionResult(next, result), result }
 }
 
 export function reincarnate(game: GameData, now = Date.now()): GameData {
@@ -278,6 +290,7 @@ export function reincarnate(game: GameData, now = Date.now()): GameData {
     inventory: { herbs: 0, ore: 0, pills: 0 },
     friends: returningFriends,
     lineage,
+    actionPlan: null,
     activeAction: null,
   }
   return {

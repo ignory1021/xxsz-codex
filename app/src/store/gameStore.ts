@@ -12,7 +12,6 @@ import {
 import { advanceMonthClock, calculateOfflineProgress } from '../core/time'
 import type {
   ActionKind,
-  ActionResult,
   CharacterDraft,
   Difficulty,
   GameData,
@@ -24,7 +23,6 @@ import { clearGame, loadGame, saveGame } from '../persistence/saveRepository'
 interface GameStore {
   game: GameData | null
   hydrated: boolean
-  result: ActionResult | null
   offlineReport: OfflineReport | null
   hydrate: () => Promise<void>
   createCharacter: (draft: CharacterDraft) => void
@@ -32,9 +30,8 @@ interface GameStore {
   setRunning: (running: boolean) => void
   setSpeed: (speed: GameSpeed) => void
   setIdleMode: (idle: boolean) => void
-  beginAction: (kind: ActionKind, difficulty: Difficulty) => void
+  setActionPlan: (kind: ActionKind, difficulty: Difficulty) => void
   breakthrough: () => void
-  dismissResult: () => void
   dismissOfflineReport: () => void
   reincarnate: () => void
   reset: () => Promise<void>
@@ -53,10 +50,28 @@ function applyOnlineElapsed(game: GameData, now: number): GameData {
   return aged
 }
 
+export function startPlannedAction(game: GameData, now: number): GameData {
+  const plan = game.actionPlan
+  if (!plan || !game.running || game.phase !== 'playing' || game.activeAction) return game
+
+  const config = DIFFICULTIES.find((item) => item.id === plan.difficulty)
+  if (!config || game.realmIndex < config.unlockRealm) return game
+  if (plan.kind === 'alchemy' && game.inventory.herbs < 2) return game
+
+  const aged = applyAge(game, actionCostMonths(plan.difficulty))
+  if (aged.phase !== 'playing') return aged
+
+  const durationScale = plan.kind === 'cultivate' ? 0.75 : 1
+  return {
+    ...aged,
+    lastUpdatedAt: now,
+    activeAction: { kind: plan.kind, difficulty: plan.difficulty, startedAt: now, endsAt: now + config.durationMs * durationScale },
+  }
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   game: null,
   hydrated: false,
-  result: null,
   offlineReport: null,
 
   hydrate: async () => {
@@ -68,7 +83,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const now = Date.now()
     const elapsed = Math.max(now - saved.lastUpdatedAt, 0)
-    let game: GameData = { ...saved, activeAction: null, lastUpdatedAt: now }
+    let game: GameData = { ...saved, actionPlan: saved.actionPlan ?? null, activeAction: null, lastUpdatedAt: now }
     let offlineReport: OfflineReport | null = null
     if (saved.running && elapsed >= 3_000 && saved.phase === 'playing') {
       const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress)
@@ -83,29 +98,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
   createCharacter: (draft) => {
     const game = createNewGame(draft)
     persist(game)
-    set({ game, result: null, offlineReport: null })
+    set({ game, offlineReport: null })
   },
 
   tick: (now = Date.now()) => {
     const current = get().game
     if (!current) return
     let game = applyOnlineElapsed(current, now)
-    let result: ActionResult | null = null
     if (game.activeAction && now >= game.activeAction.endsAt && game.phase === 'playing') {
       const settled = settleAction(game, game.activeAction.kind, game.activeAction.difficulty)
       game = settled.game
-      result = settled.result
     }
-    const meaningfulChange = game.ageMonths !== current.ageMonths || current.activeAction !== game.activeAction || result !== null || game.phase !== current.phase
+    game = startPlannedAction(game, now)
+    const meaningfulChange = game.ageMonths !== current.ageMonths
+      || current.activeAction !== game.activeAction
+      || current.chronicle !== game.chronicle
+      || game.phase !== current.phase
     if (meaningfulChange) persist(game)
-    set({ game, ...(result ? { result } : {}) })
+    set({ game })
   },
 
   setRunning: (running) => {
     const current = get().game
     if (!current || current.phase !== 'playing') return
     const now = Date.now()
-    const game = running ? { ...current, running: true, idleMode: false, lastUpdatedAt: now } : { ...applyOnlineElapsed(current, now), running: false, idleMode: false }
+    const prepared = running
+      ? { ...current, running: true, idleMode: false, lastUpdatedAt: now }
+      : { ...applyOnlineElapsed(current, now), running: false, idleMode: false }
+    const game = startPlannedAction(prepared, now)
     persist(game)
     set({ game })
   },
@@ -114,7 +134,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const current = get().game
     if (!current) return
     const now = Date.now()
-    const game = { ...applyOnlineElapsed(current, now), speed, idleMode: false }
+    const game = startPlannedAction({ ...applyOnlineElapsed(current, now), speed, idleMode: false }, now)
     persist(game)
     set({ game })
   },
@@ -123,31 +143,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const current = get().game
     if (!current || current.phase !== 'playing') return
     const now = Date.now()
-    const game = { ...applyOnlineElapsed(current, now), running: idleMode || current.running, idleMode, lastUpdatedAt: now }
+    const game = startPlannedAction({ ...applyOnlineElapsed(current, now), running: idleMode || current.running, idleMode, lastUpdatedAt: now }, now)
     persist(game)
     set({ game })
   },
 
-  beginAction: (kind, difficulty) => {
+  setActionPlan: (kind, difficulty) => {
     const current = get().game
-    if (!current || !current.running || current.phase !== 'playing' || current.activeAction) return
+    if (!current || current.phase !== 'playing') return
     const config = DIFFICULTIES.find((item) => item.id === difficulty)
     if (!config || current.realmIndex < config.unlockRealm) return
-    const aged = applyAge(current, actionCostMonths(difficulty))
-    if (aged.phase !== 'playing') {
-      persist(aged)
-      set({ game: aged })
-      return
-    }
     const now = Date.now()
-    const durationScale = kind === 'cultivate' ? 0.75 : 1
-    const game: GameData = {
-      ...aged,
-      lastUpdatedAt: now,
-      activeAction: { kind, difficulty, startedAt: now, endsAt: now + config.durationMs * durationScale },
-    }
+    const planned = { ...applyOnlineElapsed(current, now), actionPlan: { kind, difficulty } }
+    const game = startPlannedAction(planned, now)
     persist(game)
-    set({ game, result: null })
+    set({ game })
   },
 
   breakthrough: () => {
@@ -155,10 +165,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current || current.activeAction || current.phase !== 'playing') return
     const attempted = attemptBreakthrough(current)
     persist(attempted.game)
-    set({ game: attempted.game, result: attempted.result })
+    set({ game: attempted.game })
   },
 
-  dismissResult: () => set({ result: null }),
   dismissOfflineReport: () => set({ offlineReport: null }),
 
   reincarnate: () => {
@@ -166,12 +175,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current || (current.phase !== 'dead' && current.phase !== 'ascended')) return
     const game = reincarnate(current)
     persist(game)
-    set({ game, result: null, offlineReport: null })
+    set({ game, offlineReport: null })
   },
 
   reset: async () => {
     await clearGame()
-    set({ game: null, result: null, offlineReport: null })
+    set({ game: null, offlineReport: null })
   },
 
   persistNow: async () => {

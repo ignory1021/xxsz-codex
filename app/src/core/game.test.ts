@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAge, createNewGame, normalizeProgress, qiRequirement } from './game'
+import { applyAge, createNewGame, normalizeProgress, qiRequirement, settleAction } from './game'
 
 function gameFixture() {
   return createNewGame({ name: '测试修士', gender: '无定', personality: '豁达' }, 1)
@@ -31,5 +31,12 @@ describe('lifespan', () => {
     expect(game.phase).toBe('dead')
     expect(game.running).toBe(false)
     expect(game.ageMonths).toBe(70 * 12)
+  })
+})
+
+describe('action records', () => {
+  it('writes completed actions into the chronicle', () => {
+    const game = settleAction(gameFixture(), 'cultivate', 'light').game
+    expect(game.chronicle[0]).toMatchObject({ type: 'action', title: '吐纳归元' })
   })
 })

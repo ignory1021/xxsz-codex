@@ -53,7 +53,7 @@ export interface ChronicleEntry {
   id: string
   atMonths: number
   life: number
-  type: 'birth' | 'realm' | 'event' | 'friend' | 'alchemy' | 'death' | 'reincarnation'
+  type: 'birth' | 'realm' | 'event' | 'friend' | 'alchemy' | 'action' | 'death' | 'reincarnation'
   title: string
   text: string
 }
@@ -78,6 +78,11 @@ export interface ActiveAction {
   difficulty: Difficulty
   startedAt: number
   endsAt: number
+}
+
+export interface ActionPlan {
+  kind: ActionKind
+  difficulty: Difficulty
 }
 
 export interface ActionResult {
@@ -114,6 +119,7 @@ export interface GameData {
   friends: Friend[]
   chronicle: ChronicleEntry[]
   lineage: LineageEntry[]
+  actionPlan: ActionPlan | null
   activeAction: ActiveAction | null
 }
 

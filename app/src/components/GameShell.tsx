@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DIFFICULTIES, REALMS } from '../data/gameData'
 import { breakthroughChance, qiRequirement } from '../core/game'
 import { formatAge, formatDuration } from '../core/time'
-import type { ActionKind, Difficulty } from '../core/types'
+import type { ActionKind } from '../core/types'
 import { useGameStore } from '../store/gameStore'
 
 type Tab = 'cultivate' | 'adventure' | 'alchemy' | 'friends'
@@ -14,9 +14,30 @@ const TAB_LABELS: Array<{ id: Tab; label: string; mark: string }> = [
   { id: 'friends', label: '因缘', mark: '缘' },
 ]
 
-function DifficultyPicker({ kind, selected, onSelect }: { kind: ActionKind; selected: Difficulty; onSelect: (difficulty: Difficulty) => void }) {
+const ACTION_LABELS: Record<ActionKind, string> = { cultivate: '修行', adventure: '游历', alchemy: '炼丹' }
+
+function DifficultyPicker({ kind }: { kind: ActionKind }) {
   const game = useGameStore((state) => state.game)!
-  const beginAction = useGameStore((state) => state.beginAction)
+  const setActionPlan = useGameStore((state) => state.setActionPlan)
+  const selected = game.actionPlan?.kind === kind ? game.actionPlan.difficulty : null
+  const active = game.activeAction
+  const activeConfig = active ? DIFFICULTIES.find((item) => item.id === active.difficulty) : null
+  const planConfig = game.actionPlan ? DIFFICULTIES.find((item) => item.id === game.actionPlan?.difficulty) : null
+  const blocked = game.actionPlan?.kind === 'alchemy' && game.inventory.herbs < 2
+  const queued = Boolean(active && game.actionPlan && (active.kind !== game.actionPlan.kind || active.difficulty !== game.actionPlan.difficulty))
+
+  let planText = '选定方向与难度后，岁序运行时会自动启程。'
+  if (blocked) {
+    planText = '灵草不足，炼丹计划暂缓；可改选游历补充材料。'
+  } else if (active && queued && planConfig) {
+    planText = `此程结束后，将自动转为${ACTION_LABELS[game.actionPlan!.kind]}·${planConfig.name}。`
+  } else if (active && activeConfig) {
+    planText = `正在${ACTION_LABELS[active.kind]}·${activeConfig.name}，结束后会自动续行。`
+  } else if (game.actionPlan && planConfig && !game.running) {
+    planText = `${ACTION_LABELS[game.actionPlan.kind]}·${planConfig.name}已定，点击“开始”后自动启程。`
+  } else if (game.actionPlan && planConfig) {
+    planText = `${ACTION_LABELS[game.actionPlan.kind]}·${planConfig.name}已定，正在准备下一程。`
+  }
 
   return (
     <div className="difficulty-section">
@@ -33,7 +54,7 @@ function DifficultyPicker({ kind, selected, onSelect }: { kind: ActionKind; sele
               key={difficulty.id}
               disabled={locked}
               className={selected === difficulty.id ? 'difficulty active' : 'difficulty'}
-              onClick={() => onSelect(difficulty.id)}
+              onClick={() => setActionPlan(kind, difficulty.id)}
             >
               <span>{difficulty.name}</span>
               <small>{locked ? `${REALMS[difficulty.unlockRealm].name}解锁` : `耗 ${formatAge(difficulty.months)}`}</small>
@@ -41,14 +62,7 @@ function DifficultyPicker({ kind, selected, onSelect }: { kind: ActionKind; sele
           )
         })}
       </div>
-      <button
-        type="button"
-        className="primary-action"
-        disabled={!game.running || Boolean(game.activeAction) || game.phase !== 'playing' || (kind === 'alchemy' && game.inventory.herbs < 2)}
-        onClick={() => beginAction(kind, selected)}
-      >
-        {!game.running ? '岁序暂停中' : game.activeAction ? '此行尚未归来' : kind === 'cultivate' ? '运转周天' : kind === 'adventure' ? '踏入山中' : game.inventory.herbs < 2 ? '灵草不足' : '引火开炉'}
-      </button>
+      <p className={blocked ? 'plan-status blocked' : 'plan-status'}>{planText}</p>
     </div>
   )
 }
@@ -56,7 +70,6 @@ function DifficultyPicker({ kind, selected, onSelect }: { kind: ActionKind; sele
 function CultivationPage() {
   const game = useGameStore((state) => state.game)!
   const breakthrough = useGameStore((state) => state.breakthrough)
-  const [difficulty, setDifficulty] = useState<Difficulty>('medium')
   const requirement = qiRequirement(game.realmIndex, game.layer, game.perfect)
   const progress = game.perfect ? 100 : Math.min((game.qi / requirement) * 100, 100)
 
@@ -79,14 +92,13 @@ function CultivationPage() {
           </button>
         )}
       </div>
-      <DifficultyPicker kind="cultivate" selected={difficulty} onSelect={setDifficulty} />
+      <DifficultyPicker kind="cultivate" />
     </section>
   )
 }
 
 function AdventurePage() {
   const game = useGameStore((state) => state.game)!
-  const [difficulty, setDifficulty] = useState<Difficulty>('light')
   const realm = REALMS[game.realmIndex]
 
   return (
@@ -103,14 +115,13 @@ function AdventurePage() {
         <span><b>{game.inventory.ore}</b> 灵矿</span>
         <span><b>{game.friends.length}</b> 故交</span>
       </div>
-      <DifficultyPicker kind="adventure" selected={difficulty} onSelect={setDifficulty} />
+      <DifficultyPicker kind="adventure" />
     </section>
   )
 }
 
 function AlchemyPage() {
   const game = useGameStore((state) => state.game)!
-  const [difficulty, setDifficulty] = useState<Difficulty>('light')
 
   return (
     <section className="page-panel reveal" aria-labelledby="alchemy-title">
@@ -132,7 +143,7 @@ function AlchemyPage() {
           <strong>已有 {game.inventory.pills}</strong>
         </div>
       </div>
-      <DifficultyPicker kind="alchemy" selected={difficulty} onSelect={setDifficulty} />
+      <DifficultyPicker kind="alchemy" />
     </section>
   )
 }
@@ -168,7 +179,7 @@ function FriendsPage() {
         </div>
       )}
       <div className="chronicle-preview">
-        <div className="section-heading"><span>近来大事</span><small>第 {game.life} 世</small></div>
+        <div className="section-heading"><span>近来手札</span><small>点“历”查看全部</small></div>
         {game.chronicle.slice(0, 4).map((entry) => (
           <div className="chronicle-item" key={entry.id}>
             <time>{formatAge(entry.atMonths)}</time>
@@ -225,21 +236,24 @@ function ActionOverlay() {
   )
 }
 
-function ResultSheet() {
-  const result = useGameStore((state) => state.result)
-  const dismiss = useGameStore((state) => state.dismissResult)
-  if (!result) return null
+function ChronicleSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const game = useGameStore((state) => state.game)!
+  if (!open) return null
   return (
-    <div className="modal-backdrop" role="presentation" onClick={dismiss}>
-      <section className="result-sheet" role="dialog" aria-modal="true" aria-labelledby="result-title" onClick={(event) => event.stopPropagation()}>
-        <div className="result-mark">{result.kind === 'cultivate' ? '息' : result.kind === 'adventure' ? '遇' : '丹'}</div>
-        <p className="eyebrow">此行已结</p>
-        <h2 id="result-title">{result.title}</h2>
-        <p>{result.narrative}</p>
-        <div className="reward-list">
-          {result.rewards.map((reward) => <span key={reward}>{reward}</span>)}
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="chronicle-sheet" role="dialog" aria-modal="true" aria-labelledby="chronicle-title" onClick={(event) => event.stopPropagation()}>
+        <div className="chronicle-sheet-head">
+          <div><p className="eyebrow">第 {game.life} 世</p><h2 id="chronicle-title">修炼历程</h2></div>
+          <button type="button" className="mini-seal" aria-label="收起修炼历程" onClick={onClose}>收</button>
         </div>
-        <button className="primary-action" type="button" onClick={dismiss}>收入手札</button>
+        <div className="chronicle-list">
+          {game.chronicle.map((entry) => (
+            <article className="chronicle-item" key={entry.id}>
+              <time>第 {entry.life} 世 · {formatAge(entry.atMonths)}</time>
+              <div><strong>{entry.title}</strong><p>{entry.text}</p></div>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   )
@@ -292,6 +306,7 @@ export function GameShell() {
   const game = useGameStore((state) => state.game)!
   const reset = useGameStore((state) => state.reset)
   const [tab, setTab] = useState<Tab>('cultivate')
+  const [chronicleOpen, setChronicleOpen] = useState(false)
   const realm = REALMS[game.realmIndex]
 
   return (
@@ -301,9 +316,12 @@ export function GameShell() {
           <p>第 {game.life} 世 · {game.character.personality}</p>
           <h1>{game.character.name}</h1>
         </div>
-        <button className="mini-seal" type="button" aria-label="开新游戏" onClick={() => {
-          if (window.confirm('此举会清空全部世系记录，确定开新游戏吗？')) void reset()
-        }}>新</button>
+        <div className="header-actions">
+          <button className="mini-seal" type="button" aria-label="查看修炼历程" onClick={() => setChronicleOpen(true)}>历</button>
+          <button className="mini-seal" type="button" aria-label="开新游戏" onClick={() => {
+            if (window.confirm('此举会清空全部世系记录，确定开新游戏吗？')) void reset()
+          }}>新</button>
+        </div>
       </header>
 
       <section className="identity-card reveal">
@@ -340,7 +358,7 @@ export function GameShell() {
       </nav>
       <TimeControls />
       <ActionOverlay />
-      <ResultSheet />
+      <ChronicleSheet open={chronicleOpen} onClose={() => setChronicleOpen(false)} />
       <OfflineSheet />
       <EndingSheet />
     </main>

@@ -398,6 +398,11 @@ fieldset {
   font-family: "Kaiti SC", "STKaiti", serif;
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .identity-card {
   display: grid;
   grid-template-columns: 64px 1fr auto;
@@ -489,6 +494,7 @@ fieldset {
 
 .scene-copy h2,
 .map-card h2,
+.chronicle-sheet h2,
 .result-sheet h2,
 .ending-sheet h2 {
   margin-bottom: 8px;
@@ -623,8 +629,21 @@ fieldset {
   letter-spacing: 0.12em;
 }
 
-.difficulty-section > .primary-action {
-  margin-top: 12px;
+.plan-status {
+  min-height: 42px;
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border-left: 2px solid rgba(49, 93, 109, 0.42);
+  color: var(--muted);
+  background: rgba(49, 93, 109, 0.06);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.plan-status.blocked {
+  border-left-color: rgba(159, 59, 50, 0.52);
+  color: var(--cinnabar);
+  background: rgba(159, 59, 50, 0.05);
 }
 
 .map-card {
@@ -1014,6 +1033,7 @@ fieldset {
 }
 
 .result-sheet,
+.chronicle-sheet,
 .ending-sheet {
   position: relative;
   width: min(100%, 460px);
@@ -1022,6 +1042,34 @@ fieldset {
   background: var(--paper-light);
   box-shadow: 0 24px 80px rgba(19, 24, 22, 0.25);
   animation: sheet-up 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.chronicle-sheet {
+  display: flex;
+  width: min(100%, 500px);
+  max-height: min(76vh, 650px);
+  flex-direction: column;
+  padding: 24px 22px 14px;
+}
+
+.chronicle-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chronicle-sheet-head h2 {
+  margin-bottom: 0;
+}
+
+.chronicle-list {
+  overflow-y: auto;
+}
+
+.chronicle-list .chronicle-item {
+  grid-template-columns: 88px 1fr;
 }
 
 .result-sheet > p:not(.eyebrow),
