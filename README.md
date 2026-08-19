@@ -3,6 +3,7 @@
 一款手机优先的实时挂机修仙文字游戏。
 
 > **当前版本**：未发布（MVP 开发中）
+> **在线试玩**：[打开修仙手札 Demo](https://ignory1021.github.io/xxsz-codex/)
 > **设计文档**：[设计文档/README.md](./设计文档/README.md)
 > **AI 工作约定**：[AGENTS.md](./AGENTS.md)
 > **工作流程**：[WORKFLOW.md](./WORKFLOW.md)
@@ -33,6 +34,7 @@
 
 - [x] MVP 设计文档
 - [x] 可玩 Demo（位于 [`app/`](./app/)）
+- [x] GitHub Pages 在线试玩与自动部署
 - [ ] MVP 完整内容实现
 
 详见 [`设计文档/09-分期路线图.md`](./设计文档/09-分期路线图.md)。
