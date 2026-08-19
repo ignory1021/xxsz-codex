@@ -4,7 +4,7 @@
 
 ## 在线试玩
 
-在线试玩地址会在首次托管发布完成后写入本节。
+[打开修仙手札在线 Demo](https://xxsz-codex.sturdy-hippo-2930.chatgpt.site)
 
 ## 本地运行
 
