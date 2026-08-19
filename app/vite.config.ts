@@ -1,9 +1,11 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { sites } from '@openai/sites-vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
+    sites(),
     react(),
     VitePWA({
       registerType: 'prompt',

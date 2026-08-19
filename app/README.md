@@ -4,9 +4,7 @@
 
 ## 在线试玩
 
-[打开 GitHub Pages 在线版](https://ignory1021.github.io/xxsz-codex/)
-
-推送到 `main` 分支后，GitHub Actions 会自动构建并更新在线版。
+在线试玩地址会在首次托管发布完成后写入本节。
 
 ## 本地运行
 
@@ -23,12 +21,6 @@ npm run dev
 npm run typecheck
 npm test
 npm run build
-```
-
-GitHub Pages 子路径构建可执行：
-
-```bash
-npm run build -- --base=/xxsz-codex/
 ```
 
 ## Android
