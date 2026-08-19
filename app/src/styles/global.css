@@ -857,10 +857,9 @@ fieldset {
 .time-controls {
   position: fixed;
   z-index: 20;
-  right: max(0px, calc((100vw - 520px) / 2));
-  left: max(0px, calc((100vw - 520px) / 2));
+  left: 50%;
   width: min(100%, 520px);
-  margin: auto;
+  transform: translateX(-50%);
   background: rgba(247, 241, 226, 0.96);
   backdrop-filter: blur(15px);
 }
