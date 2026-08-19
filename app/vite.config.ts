@@ -4,6 +4,7 @@ import { sites } from '@openai/sites-vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH ?? '/',
   plugins: [
     sites(),
     react(),

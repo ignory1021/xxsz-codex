@@ -4,7 +4,9 @@
 
 ## 在线试玩
 
-[打开修仙手札在线 Demo](https://xxsz-codex.sturdy-hippo-2930.chatgpt.site)
+[打开 GitHub Pages 在线 Demo](https://ignory1021.github.io/xxsz-codex/)
+
+推送到 `main` 分支后，GitHub Actions 会自动构建并更新在线版。
 
 ## 本地运行
 
