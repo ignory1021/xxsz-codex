@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { DIFFICULTIES, REALMS } from '../data/gameData'
-import { breakthroughChance, qiRequirement } from '../core/game'
+import { breakthroughChance, lifespanYears, qiRequirement } from '../core/game'
 import { formatAge, formatDuration } from '../core/time'
 import type { ActionKind } from '../core/types'
 import { useGameStore } from '../store/gameStore'
@@ -72,6 +72,7 @@ function CultivationPage() {
   const breakthrough = useGameStore((state) => state.breakthrough)
   const requirement = qiRequirement(game.realmIndex, game.layer, game.perfect)
   const progress = game.perfect ? 100 : Math.min((game.qi / requirement) * 100, 100)
+  const nextRealm = REALMS[game.realmIndex + 1]
 
   return (
     <section className="page-panel reveal" aria-labelledby="cultivation-title">
@@ -88,7 +89,7 @@ function CultivationPage() {
         <div className="qi-track"><i style={{ width: `${progress}%` }} /></div>
         {game.perfect && (
           <button className="breakthrough-button" type="button" disabled={Boolean(game.activeAction)} onClick={breakthrough}>
-            尝试突破 · 成功率 {Math.round(breakthroughChance(game) * 100)}%
+            {nextRealm ? `尝试突破至${nextRealm.name}` : '尝试破界飞升'} · 成功率 {Math.round(breakthroughChance(game) * 100)}%
           </button>
         )}
       </div>
@@ -122,6 +123,7 @@ function AdventurePage() {
 
 function AlchemyPage() {
   const game = useGameStore((state) => state.game)!
+  const takePill = useGameStore((state) => state.takePill)
 
   return (
     <section className="page-panel reveal" aria-labelledby="alchemy-title">
@@ -143,6 +145,10 @@ function AlchemyPage() {
           <strong>已有 {game.inventory.pills}</strong>
         </div>
       </div>
+      <button className="pill-use-button" type="button" disabled={game.inventory.pills < 1} onClick={takePill}>
+        <span>服用培元丹</span>
+        <small>灵气 +50</small>
+      </button>
       <DifficultyPicker kind="alchemy" />
     </section>
   )
@@ -266,14 +272,14 @@ function EncounterSheet() {
   if (!encounter) return null
 
   const opportunityChoices = [
-    { id: 'observe' as const, label: '静观石刻', detail: '灵气 +60（受灵根加成）· 悟性 +1' },
-    { id: 'risk' as const, label: '破禁探幽', detail: '55% 灵气 +140；45% 额外耗寿 6 个月' },
-    { id: 'leave' as const, label: '收敛离去', detail: '不增不损，任灵光散去' },
+    { id: 'observe' as const, label: '静观石刻' },
+    { id: 'risk' as const, label: '破禁探幽' },
+    { id: 'leave' as const, label: '收敛离去' },
   ]
   const friendChoices = [
-    { id: 'invite' as const, label: '执礼相邀', detail: '结识道友，初始好感 +20 ~ +50' },
-    { id: 'greet' as const, label: '平常相问', detail: '结识道友，初始好感 -10 ~ +20' },
-    { id: 'challenge' as const, label: '锋芒相试', detail: '结识道友，初始好感 -50 ~ -15' },
+    { id: 'invite' as const, label: '执礼相邀' },
+    { id: 'greet' as const, label: '平常相问' },
+    { id: 'challenge' as const, label: '锋芒相试' },
   ]
   const choices = encounter.kind === 'opportunity' ? opportunityChoices : friendChoices
 
@@ -294,11 +300,10 @@ function EncounterSheet() {
           {choices.map((choice) => (
             <button key={choice.id} type="button" onClick={() => resolveEncounter(choice.id)}>
               <strong>{choice.label}</strong>
-              <span>{choice.detail}</span>
             </button>
           ))}
         </div>
-        <p className="encounter-note">作出选择后，原自动计划会继续推进。</p>
+        <p className="encounter-note">天机难测。作出选择后，原自动计划会继续推进。</p>
       </section>
     </div>
   )
@@ -377,7 +382,7 @@ export function GameShell() {
           <div className="age-line">
             <span>寿元</span>
             <strong>{formatAge(game.ageMonths)}</strong>
-            <i>/ {realm.lifespanYears}年</i>
+            <i>/ {lifespanYears(game)}年</i>
           </div>
         </div>
         <div className="aptitude-stamp">

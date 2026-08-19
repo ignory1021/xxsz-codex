@@ -26,6 +26,11 @@ export function qiRequirement(realmIndex: number, layer: number, perfect: boolea
   return Math.round(realm.qiStart + (realm.qiEnd - realm.qiStart) * progress)
 }
 
+export function lifespanYears(game: Pick<GameData, 'realmIndex' | 'layer'>): number {
+  const realm = REALMS[game.realmIndex]
+  return realm.lifespanYears + (game.layer - 1) * realm.lifespanLayerGainYears
+}
+
 export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData {
   const spiritRoot = generateSpiritRoot()
   const birth: ChronicleEntry = {
@@ -106,9 +111,11 @@ export function normalizeProgress(game: GameData): GameData {
 }
 
 export function applyAge(game: GameData, months: number): GameData {
-  if (months <= 0 || game.phase !== 'playing') return game
-  const lifespanMonths = REALMS[game.realmIndex].lifespanYears * 12
-  const ageMonths = Math.min(game.ageMonths + months, lifespanMonths)
+  if (months < 0 || game.phase !== 'playing') return game
+  const lifespanMonths = lifespanYears(game) * 12
+  const ageMonths = game.ageMonths >= lifespanMonths
+    ? game.ageMonths
+    : Math.min(game.ageMonths + months, lifespanMonths)
   if (ageMonths < lifespanMonths) return { ...game, ageMonths }
 
   return {
@@ -124,6 +131,28 @@ export function applyAge(game: GameData, months: number): GameData {
 
 export function actionCostMonths(difficulty: Difficulty): number {
   return DIFFICULTIES.find((item) => item.id === difficulty)?.months ?? 1
+}
+
+export function takePill(game: GameData): { game: GameData; result: ActionResult } {
+  if (game.inventory.pills < 1) {
+    return {
+      game,
+      result: { kind: 'alchemy', title: '丹瓶已空', narrative: '囊中已无培元丹可服。', rewards: [] },
+    }
+  }
+
+  const next = normalizeProgress({
+    ...game,
+    qi: game.qi + 50,
+    inventory: { ...game.inventory, pills: game.inventory.pills - 1 },
+  })
+  const result: ActionResult = {
+    kind: 'alchemy',
+    title: '服用培元丹',
+    narrative: '丹药入腹，温润药力化作灵气归于丹田。',
+    rewards: ['灵气 +50'],
+  }
+  return { game: recordActionResult(next, result), result }
 }
 
 function recordActionResult(game: GameData, result: ActionResult): GameData {
@@ -301,7 +330,7 @@ export function resolveEncounter(game: GameData, choice: EncounterChoice): GameD
 
 export function breakthroughChance(game: GameData): number {
   const rates = [0.9, 0.75, 0.6, 0.45, 0.3, 0.2, 0.15, 0.1, 0.05]
-  return Math.min(0.95, rates[game.realmIndex] + game.character.insight * 0.01 + (game.inventory.pills > 0 ? 0.15 : 0))
+  return Math.min(0.95, rates[game.realmIndex] + game.character.insight * 0.01)
 }
 
 export function attemptBreakthrough(game: GameData): { game: GameData; result: ActionResult } {
@@ -310,8 +339,6 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
     return { game: recordActionResult(game, result), result }
   }
 
-  const usedPill = game.inventory.pills > 0
-  const inventory = usedPill ? { ...game.inventory, pills: game.inventory.pills - 1 } : game.inventory
   const success = Math.random() <= breakthroughChance(game)
 
   if (success && game.realmIndex === REALMS.length - 1) {
@@ -319,7 +346,6 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
       ...game,
       phase: 'ascended' as const,
       running: false,
-      inventory,
       chronicle: addChronicle(game, 'realm', '破界飞升', '雷海尽头天门洞开，此世仙途终得圆满。'),
     }
     const result: ActionResult = { kind: 'cultivate', title: '破界飞升', narrative: '九霄雷散，天门为你而开。', rewards: ['解锁结局：完美飞升'] }
@@ -334,7 +360,6 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
       layer: 1,
       perfect: false,
       qi: 0,
-      inventory,
       chronicle: addChronicle(game, 'realm', `突破·${REALMS[realmIndex].name}`, `灵台震荡之后，新境豁然开朗。`),
     }
     const result: ActionResult = { kind: 'cultivate', title: `踏入${REALMS[realmIndex].name}`, narrative: '旧境如壳碎去，天地灵机从未如此清晰。', rewards: [`寿元上限提升至 ${REALMS[realmIndex].lifespanYears} 年`] }
@@ -342,7 +367,7 @@ export function attemptBreakthrough(game: GameData): { game: GameData; result: A
   }
 
   const lost = randomInt(1, 3)
-  const next = { ...game, layer: Math.max(7, 10 - lost + 1), perfect: false, qi: 0, inventory }
+  const next = applyAge({ ...game, layer: Math.max(7, 10 - lost + 1), perfect: false, qi: 0 }, 0)
   const result: ActionResult = { kind: 'cultivate', title: '叩关未成', narrative: '心神一乱，灵气自周天溃散。所幸道基未毁，尚可重修。', rewards: [`境界跌落 ${lost} 层`] }
   return { game: recordActionResult(next, result), result }
 }
@@ -364,7 +389,7 @@ export function reincarnate(game: GameData, now = Date.now()): GameData {
     .filter((friend) => friend.affection >= 30 && Math.random() <= (friend.affection >= 70 ? 1 : friend.affection >= 50 ? 0.5 : 0.2))
     .map((friend) => ({ ...friend, name: pick(['顾长风', '苏停云', '宁知白', '叶藏秋']), affection: Math.floor(friend.affection / 2), metInLife: game.life + 1 }))
 
-  const spiritRoot = generateSpiritRoot()
+  const spiritRoot = generateSpiritRoot(game.character.spiritRoot)
   const reborn: GameData = {
     ...game,
     character: { ...game.character, spiritRoot, insight: 0 },

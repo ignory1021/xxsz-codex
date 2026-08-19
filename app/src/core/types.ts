@@ -24,6 +24,7 @@ export interface Character {
 export interface RealmConfig {
   name: string
   lifespanYears: number
+  lifespanLayerGainYears: number
   offlineCapYears: number
   qiStart: number
   qiEnd: number

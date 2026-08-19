@@ -27,12 +27,14 @@ export function calculateOfflineProgress(
   realmIndex: number,
   ageMonths: number,
   monthProgress: number,
+  layer = 1,
 ): OfflineReport & { progress: number } {
   const realm = REALMS[realmIndex]
   const total = monthProgress + effectiveOfflineMs(elapsedMs) / MONTH_MS_AT_X1
   const rawMonths = Math.floor(total)
   const capMonths = realm.offlineCapYears * 12
-  const remainingMonths = Math.max(realm.lifespanYears * 12 - ageMonths, 0)
+  const lifespanMonths = (realm.lifespanYears + (layer - 1) * realm.lifespanLayerGainYears) * 12
+  const remainingMonths = Math.max(lifespanMonths - ageMonths, 0)
   const advancedMonths = Math.min(rawMonths, capMonths, remainingMonths)
   const died = advancedMonths >= remainingMonths && remainingMonths > 0
   const qiGained = Math.floor(advancedMonths * 2)

@@ -714,6 +714,28 @@ fieldset {
   text-align: center;
 }
 
+.pill-use-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(159, 59, 50, 0.38);
+  color: var(--cinnabar);
+  background: rgba(159, 59, 50, 0.04);
+  cursor: pointer;
+  font-family: "Kaiti SC", "STKaiti", serif;
+  font-size: 16px;
+}
+
+.pill-use-button small {
+  color: var(--muted);
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+  font-size: 10px;
+}
+
 .recipe-card > i {
   color: var(--muted);
   font-size: 10px;
@@ -1119,8 +1141,8 @@ fieldset {
 
 .encounter-options button {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   min-height: 46px;
   padding: 10px 12px;

@@ -9,6 +9,7 @@ import {
   reincarnate,
   resolveEncounter,
   settleAction,
+  takePill,
 } from '../core/game'
 import { advanceMonthClock, calculateOfflineProgress } from '../core/time'
 import type {
@@ -34,6 +35,7 @@ interface GameStore {
   setIdleMode: (idle: boolean) => void
   setActionPlan: (kind: ActionKind, difficulty: Difficulty) => void
   resolveEncounter: (choice: EncounterChoice) => void
+  takePill: () => void
   breakthrough: () => void
   dismissOfflineReport: () => void
   reincarnate: () => void
@@ -89,7 +91,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let game: GameData = { ...saved, actionPlan: saved.actionPlan ?? null, pendingEncounter: saved.pendingEncounter ?? null, activeAction: null, lastUpdatedAt: now }
     let offlineReport: OfflineReport | null = null
     if (saved.running && elapsed >= 3_000 && saved.phase === 'playing') {
-      const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress)
+      const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress, saved.layer)
       offlineReport = calculated
       game = normalizeProgress({ ...game, qi: game.qi + calculated.qiGained, monthProgress: calculated.progress })
       game = applyAge(game, calculated.advancedMonths)
@@ -172,6 +174,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const game = startPlannedAction(resolved, now)
     persist(game)
     set({ game })
+  },
+
+  takePill: () => {
+    const current = get().game
+    if (!current || current.phase !== 'playing') return
+    const taken = takePill(current)
+    persist(taken.game)
+    set({ game: taken.game })
   },
 
   breakthrough: () => {

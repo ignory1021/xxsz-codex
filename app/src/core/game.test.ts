@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { applyAge, createNewGame, normalizeProgress, qiRequirement, resolveEncounter, settleAction } from './game'
+import { describe, expect, it, vi } from 'vitest'
+import { applyAge, attemptBreakthrough, createNewGame, lifespanYears, normalizeProgress, qiRequirement, resolveEncounter, settleAction, takePill } from './game'
+import { generateSpiritRoot } from './random'
 
 function gameFixture() {
   return createNewGame({ name: '测试修士', gender: '无定', personality: '豁达' }, 1)
@@ -31,6 +32,17 @@ describe('lifespan', () => {
     expect(game.phase).toBe('dead')
     expect(game.running).toBe(false)
     expect(game.ageMonths).toBe(70 * 12)
+  })
+
+  it('increases the lifespan cap for every small layer', () => {
+    expect(lifespanYears({ ...gameFixture(), layer: 2 })).toBe(78)
+    expect(lifespanYears({ ...gameFixture(), realmIndex: 1, layer: 2 })).toBe(166)
+  })
+
+  it('does not move age backwards when a lost layer lowers the lifespan cap', () => {
+    const game = applyAge({ ...gameFixture(), layer: 1, ageMonths: 80 * 12 }, 0)
+    expect(game.phase).toBe('dead')
+    expect(game.ageMonths).toBe(80 * 12)
   })
 })
 
@@ -68,5 +80,40 @@ describe('encounter choices', () => {
     expect(game.friends[0].affection).toBeGreaterThanOrEqual(-50)
     expect(game.friends[0].affection).toBeLessThanOrEqual(-15)
     expect(game.chronicle[0].type).toBe('friend')
+  })
+})
+
+describe('pills and breakthrough', () => {
+  it('consumes a Peiyuan pill for its documented qi gain', () => {
+    const game = takePill({ ...gameFixture(), inventory: { herbs: 0, ore: 0, pills: 1 } }).game
+    expect(game.inventory.pills).toBe(0)
+    expect(game.qi).toBe(50)
+    expect(game.chronicle[0].title).toBe('服用培元丹')
+  })
+
+  it('does not consume a Peiyuan pill during breakthrough', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const game = attemptBreakthrough({
+      ...gameFixture(),
+      layer: 10,
+      perfect: true,
+      inventory: { herbs: 0, ore: 0, pills: 1 },
+    }).game
+
+    expect(game.realmIndex).toBe(1)
+    expect(game.inventory.pills).toBe(1)
+    random.mockRestore()
+  })
+})
+
+describe('reincarnation spirit roots', () => {
+  it('keeps the next life within the documented variation around the prior life', () => {
+    const previous = { name: '双灵根', elements: ['金', '木'], aptitude: 6, structureMultiplier: 1.2 }
+    const next = generateSpiritRoot(previous)
+
+    expect(next.elements.length).toBeGreaterThanOrEqual(1)
+    expect(next.elements.length).toBeLessThanOrEqual(3)
+    expect(next.aptitude).toBeGreaterThanOrEqual(4)
+    expect(next.aptitude).toBeLessThanOrEqual(8)
   })
 })

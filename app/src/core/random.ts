@@ -9,13 +9,11 @@ export function pick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-export function generateSpiritRoot(): SpiritRoot {
-  const roll = Math.random()
-  const count = roll < 0.08 ? 1 : roll < 0.32 ? 2 : roll < 0.68 ? 3 : roll < 0.9 ? 4 : 5
+function createSpiritRoot(count: number, aptitude: number): SpiritRoot {
   const elements = [...ROOT_ELEMENTS].sort(() => Math.random() - 0.5).slice(0, count)
-  const aptitude = count === 1 ? randomInt(9, 10) : randomInt(2, 9)
   const multipliers: Record<number, number> = { 1: 1.5, 2: 1.2, 3: 1, 4: 0.75, 5: 0.5 }
-  const label = count === 1 && aptitude >= 9 ? `天${elements[0]}灵根` : count === 5 ? '五行杂灵根' : `${count === 2 ? '双' : count === 3 ? '三' : '四'}灵根`
+  const labels: Record<number, string> = { 1: '单', 2: '双', 3: '三', 4: '四', 5: '五行杂' }
+  const label = count === 1 && aptitude >= 9 ? `天${elements[0]}灵根` : `${labels[count]}灵根`
 
   return {
     name: label,
@@ -23,6 +21,21 @@ export function generateSpiritRoot(): SpiritRoot {
     aptitude,
     structureMultiplier: multipliers[count],
   }
+}
+
+export function generateSpiritRoot(previous?: SpiritRoot): SpiritRoot {
+  if (!previous) {
+    const roll = Math.random()
+    const count = roll < 0.12 ? 1 : roll < 0.4 ? 2 : roll < 0.75 ? 3 : roll < 0.95 ? 4 : 5
+    const aptitude = count === 1 ? randomInt(9, 10) : randomInt(4, 9)
+    return createSpiritRoot(count, aptitude)
+  }
+
+  const roll = Math.random()
+  const shift = roll < 0.2 ? -1 : roll < 0.8 ? 0 : 1
+  const count = Math.min(5, Math.max(1, previous.elements.length + shift))
+  const aptitude = Math.min(10, Math.max(3, previous.aptitude + randomInt(-2, 2)))
+  return createSpiritRoot(count, aptitude)
 }
 
 export function generateFriend(life: number): Friend {

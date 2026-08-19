@@ -36,6 +36,12 @@ describe('offline progress', () => {
     expect(report.advancedMonths).toBe(12)
     expect(report.died).toBe(true)
   })
+
+  it('includes small-realm lifespan gains in the remaining lifespan', () => {
+    const report = calculateOfflineProgress(60 * 60_000, 0, 70 * 12, 0, 2)
+    expect(report.advancedMonths).toBe(8 * 12)
+    expect(report.died).toBe(true)
+  })
 })
 
 describe('age display', () => {
