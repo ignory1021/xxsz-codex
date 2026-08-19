@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createNewGame, settleAction } from '../core/game'
 import { startPlannedAction } from './gameStore'
 
@@ -18,6 +18,7 @@ describe('automatic action plans', () => {
   })
 
   it('continues the plan after an action settles', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.9)
     const started = startPlannedAction({
       ...gameFixture(),
       running: true,
@@ -28,6 +29,7 @@ describe('automatic action plans', () => {
 
     expect(settled.chronicle[0].type).toBe('action')
     expect(continued.activeAction).toMatchObject({ kind: 'adventure', difficulty: 'light', startedAt: 2_000 })
+    random.mockRestore()
   })
 
   it('waits for materials before starting an alchemy plan', () => {
@@ -36,6 +38,22 @@ describe('automatic action plans', () => {
       running: true,
       inventory: { herbs: 1, ore: 0, pills: 0 },
       actionPlan: { kind: 'alchemy', difficulty: 'light' },
+    }, 1_000)
+
+    expect(game.activeAction).toBeNull()
+  })
+
+  it('waits for an encounter choice before starting the next action', () => {
+    const game = startPlannedAction({
+      ...gameFixture(),
+      running: true,
+      actionPlan: { kind: 'cultivate', difficulty: 'light' },
+      pendingEncounter: {
+        id: 'opportunity-test',
+        kind: 'opportunity',
+        title: '灵光乍现',
+        narrative: '测试剧情。',
+      },
     }, 1_000)
 
     expect(game.activeAction).toBeNull()

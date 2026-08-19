@@ -7,6 +7,7 @@ import {
   createNewGame,
   normalizeProgress,
   reincarnate,
+  resolveEncounter,
   settleAction,
 } from '../core/game'
 import { advanceMonthClock, calculateOfflineProgress } from '../core/time'
@@ -14,6 +15,7 @@ import type {
   ActionKind,
   CharacterDraft,
   Difficulty,
+  EncounterChoice,
   GameData,
   GameSpeed,
   OfflineReport,
@@ -31,6 +33,7 @@ interface GameStore {
   setSpeed: (speed: GameSpeed) => void
   setIdleMode: (idle: boolean) => void
   setActionPlan: (kind: ActionKind, difficulty: Difficulty) => void
+  resolveEncounter: (choice: EncounterChoice) => void
   breakthrough: () => void
   dismissOfflineReport: () => void
   reincarnate: () => void
@@ -52,7 +55,7 @@ function applyOnlineElapsed(game: GameData, now: number): GameData {
 
 export function startPlannedAction(game: GameData, now: number): GameData {
   const plan = game.actionPlan
-  if (!plan || !game.running || game.phase !== 'playing' || game.activeAction) return game
+  if (!plan || !game.running || game.phase !== 'playing' || game.activeAction || game.pendingEncounter) return game
 
   const config = DIFFICULTIES.find((item) => item.id === plan.difficulty)
   if (!config || game.realmIndex < config.unlockRealm) return game
@@ -83,7 +86,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const now = Date.now()
     const elapsed = Math.max(now - saved.lastUpdatedAt, 0)
-    let game: GameData = { ...saved, actionPlan: saved.actionPlan ?? null, activeAction: null, lastUpdatedAt: now }
+    let game: GameData = { ...saved, actionPlan: saved.actionPlan ?? null, pendingEncounter: saved.pendingEncounter ?? null, activeAction: null, lastUpdatedAt: now }
     let offlineReport: OfflineReport | null = null
     if (saved.running && elapsed >= 3_000 && saved.phase === 'playing') {
       const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress)
@@ -113,6 +116,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const meaningfulChange = game.ageMonths !== current.ageMonths
       || current.activeAction !== game.activeAction
       || current.chronicle !== game.chronicle
+      || current.pendingEncounter !== game.pendingEncounter
       || game.phase !== current.phase
     if (meaningfulChange) persist(game)
     set({ game })
@@ -156,6 +160,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const now = Date.now()
     const planned = { ...applyOnlineElapsed(current, now), actionPlan: { kind, difficulty } }
     const game = startPlannedAction(planned, now)
+    persist(game)
+    set({ game })
+  },
+
+  resolveEncounter: (choice) => {
+    const current = get().game
+    if (!current || !current.pendingEncounter) return
+    const now = Date.now()
+    const resolved = resolveEncounter(current, choice)
+    const game = startPlannedAction(resolved, now)
     persist(game)
     set({ game })
   },

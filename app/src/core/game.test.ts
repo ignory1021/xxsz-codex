@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyAge, createNewGame, normalizeProgress, qiRequirement, settleAction } from './game'
+import { applyAge, createNewGame, normalizeProgress, qiRequirement, resolveEncounter, settleAction } from './game'
 
 function gameFixture() {
   return createNewGame({ name: '测试修士', gender: '无定', personality: '豁达' }, 1)
@@ -38,5 +38,35 @@ describe('action records', () => {
   it('writes completed actions into the chronicle', () => {
     const game = settleAction(gameFixture(), 'cultivate', 'light').game
     expect(game.chronicle[0]).toMatchObject({ type: 'action', title: '吐纳归元' })
+  })
+})
+
+describe('encounter choices', () => {
+  it('records the selected way of meeting a friend and preserves its affinity range', () => {
+    const game = resolveEncounter({
+      ...gameFixture(),
+      actionPlan: { kind: 'adventure', difficulty: 'light' },
+      pendingEncounter: {
+        id: 'friend-test',
+        kind: 'friend',
+        title: '山水相逢',
+        narrative: '测试剧情。',
+        friend: {
+          soulId: 'friend-test',
+          name: '顾长风',
+          title: '负剑游人',
+          personality: '豪迈',
+          affection: 0,
+          metInLife: 1,
+          memory: '',
+        },
+      },
+    }, 'challenge')
+
+    expect(game.pendingEncounter).toBeNull()
+    expect(game.friends).toHaveLength(1)
+    expect(game.friends[0].affection).toBeGreaterThanOrEqual(-50)
+    expect(game.friends[0].affection).toBeLessThanOrEqual(-15)
+    expect(game.chronicle[0].type).toBe('friend')
   })
 })

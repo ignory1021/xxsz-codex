@@ -259,6 +259,51 @@ function ChronicleSheet({ open, onClose }: { open: boolean; onClose: () => void 
   )
 }
 
+function EncounterSheet() {
+  const game = useGameStore((state) => state.game)!
+  const resolveEncounter = useGameStore((state) => state.resolveEncounter)
+  const encounter = game.pendingEncounter
+  if (!encounter) return null
+
+  const opportunityChoices = [
+    { id: 'observe' as const, label: '静观石刻', detail: '灵气 +60（受灵根加成）· 悟性 +1' },
+    { id: 'risk' as const, label: '破禁探幽', detail: '55% 灵气 +140；45% 额外耗寿 6 个月' },
+    { id: 'leave' as const, label: '收敛离去', detail: '不增不损，任灵光散去' },
+  ]
+  const friendChoices = [
+    { id: 'invite' as const, label: '执礼相邀', detail: '结识道友，初始好感 +20 ~ +50' },
+    { id: 'greet' as const, label: '平常相问', detail: '结识道友，初始好感 -10 ~ +20' },
+    { id: 'challenge' as const, label: '锋芒相试', detail: '结识道友，初始好感 -50 ~ -15' },
+  ]
+  const choices = encounter.kind === 'opportunity' ? opportunityChoices : friendChoices
+
+  return (
+    <div className="modal-backdrop encounter-backdrop">
+      <section className="encounter-sheet" role="dialog" aria-modal="true" aria-labelledby="encounter-title">
+        <div className="encounter-mark">{encounter.kind === 'opportunity' ? '遇' : '缘'}</div>
+        <p className="eyebrow">{encounter.kind === 'opportunity' ? '一线机缘' : '山水相逢'}</p>
+        <h2 id="encounter-title">{encounter.title}</h2>
+        {encounter.friend && (
+          <div className="encounter-friend">
+            <span>{encounter.friend.name.slice(-1)}</span>
+            <p><strong>{encounter.friend.name}</strong>{encounter.friend.title} · {encounter.friend.personality}</p>
+          </div>
+        )}
+        <p className="encounter-copy">{encounter.narrative}</p>
+        <div className="encounter-options">
+          {choices.map((choice) => (
+            <button key={choice.id} type="button" onClick={() => resolveEncounter(choice.id)}>
+              <strong>{choice.label}</strong>
+              <span>{choice.detail}</span>
+            </button>
+          ))}
+        </div>
+        <p className="encounter-note">作出选择后，原自动计划会继续推进。</p>
+      </section>
+    </div>
+  )
+}
+
 function OfflineSheet() {
   const report = useGameStore((state) => state.offlineReport)
   const dismiss = useGameStore((state) => state.dismissOfflineReport)
@@ -359,6 +404,7 @@ export function GameShell() {
       <TimeControls />
       <ActionOverlay />
       <ChronicleSheet open={chronicleOpen} onClose={() => setChronicleOpen(false)} />
+      <EncounterSheet />
       <OfflineSheet />
       <EndingSheet />
     </main>

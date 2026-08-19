@@ -6,7 +6,9 @@ import type {
   CharacterDraft,
   ChronicleEntry,
   Difficulty,
+  EncounterChoice,
   GameData,
+  PendingEncounter,
 } from './types'
 
 export function aptitudeMultiplier(aptitude: number): number {
@@ -55,6 +57,7 @@ export function createNewGame(draft: CharacterDraft, now = Date.now()): GameData
     chronicle: [birth],
     lineage: [],
     actionPlan: null,
+    pendingEncounter: null,
     activeAction: null,
   }
 }
@@ -131,6 +134,47 @@ function recordActionResult(game: GameData, result: ActionResult): GameData {
   }
 }
 
+function createEncounter(game: GameData, kind: ActionKind): PendingEncounter | null {
+  if (kind === 'cultivate' && Math.random() < 0.08) {
+    return {
+      id: `opportunity-${game.life}-${game.ageMonths}-${Date.now()}`,
+      kind: 'opportunity',
+      title: '灵光乍现',
+      narrative: '吐纳将歇时，识海忽现一方残碑。碑文若隐若现，似在等待你的回应。',
+    }
+  }
+
+  if (kind === 'adventure') {
+    const roll = Math.random()
+    if (roll < 0.12 && game.friends.length < 8) {
+      const friend = generateFriend(game.life)
+      return {
+        id: `friend-${friend.soulId}`,
+        kind: 'friend',
+        title: '山水相逢',
+        narrative: `你在${REALMS[game.realmIndex].map}遇见${friend.name}，对方自称${friend.title}，眉目间尽是${friend.personality}之意。`,
+        friend,
+      }
+    }
+    if (roll < 0.24) {
+      return {
+        id: `opportunity-${game.life}-${game.ageMonths}-${Date.now()}`,
+        kind: 'opportunity',
+        title: '雾中遗府',
+        narrative: '云雾深处，一扇半掩的石门浮现眼前。门内灵机流转，亦有难辨的凶险。',
+      }
+    }
+  }
+
+  return null
+}
+
+function completeAction(game: GameData, result: ActionResult): GameData {
+  const recorded = recordActionResult(game, result)
+  const pendingEncounter = createEncounter(recorded, result.kind)
+  return pendingEncounter ? { ...recorded, pendingEncounter, running: false } : recorded
+}
+
 export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty): { game: GameData; result: ActionResult } {
   const difficultyConfig = DIFFICULTIES.find((item) => item.id === difficulty) ?? DIFFICULTIES[0]
   const root = game.character.spiritRoot
@@ -146,7 +190,7 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
       rewards: [`灵气 +${qi}`],
     }
     return {
-      game: recordActionResult(next, result),
+      game: completeAction(next, result),
       result,
     }
   }
@@ -155,26 +199,16 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     const herbs = randomInt(1, Math.max(1, Math.ceil(difficultyConfig.months / 12) + 1))
     const ore = Math.random() < 0.35 ? 1 : 0
     const qi = Math.max(2, Math.round(difficultyConfig.baseQi * rootMultiplier * 0.25))
-    let friends = game.friends
     const rewards = [`灵气 +${qi}`, `灵草 +${herbs}`]
-    let chronicle = game.chronicle
     if (ore) rewards.push('灵矿 +1')
-    if (Math.random() < 0.12 && friends.length < 8) {
-      const friend = generateFriend(game.life)
-      friends = [...friends, friend]
-      rewards.push(`结识 ${friend.name}`)
-      chronicle = addChronicle(game, 'friend', '萍水相逢', `你在${REALMS[game.realmIndex].map}结识了${friend.name}。`)
-    }
     const next = normalizeProgress({
       ...game,
       qi: game.qi + qi,
       inventory: { ...game.inventory, herbs: game.inventory.herbs + herbs, ore: game.inventory.ore + ore },
-      friends,
-      chronicle,
       activeAction: null,
     })
     const result: ActionResult = { kind, title: REALMS[game.realmIndex].map, narrative: pick(ADVENTURE_FINDINGS), rewards }
-    return { game: recordActionResult(next, result), result }
+    return { game: completeAction(next, result), result }
   }
 
   if (game.inventory.herbs < 2) {
@@ -203,7 +237,66 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
     narrative: success ? '丹炉轻鸣，药香自炉隙间漫出。' : '火候稍纵即逝，只余一缕焦苦药气。',
     rewards: success ? ['培元丹 +1', `灵气 +${qi}`] : ['损失灵草 ×1', `灵气 +${qi}`],
   }
-  return { game: recordActionResult(completed, result), result }
+  return { game: completeAction(completed, result), result }
+}
+
+export function resolveEncounter(game: GameData, choice: EncounterChoice): GameData {
+  const encounter = game.pendingEncounter
+  if (!encounter) return game
+
+  let next: GameData = { ...game, pendingEncounter: null }
+  if (encounter.kind === 'opportunity') {
+    const rootMultiplier = game.character.spiritRoot.structureMultiplier * aptitudeMultiplier(game.character.spiritRoot.aptitude)
+    if (choice === 'observe') {
+      const qi = Math.round(60 * rootMultiplier)
+      next = normalizeProgress({
+        ...next,
+        qi: next.qi + qi,
+        character: { ...next.character, insight: next.character.insight + 1 },
+      })
+      next = { ...next, chronicle: addChronicle(next, 'event', '静观石刻', `你从残碑中悟得一线真意，灵气 +${qi}，悟性 +1。`) }
+    } else if (choice === 'risk') {
+      if (Math.random() < 0.55) {
+        const qi = Math.round(140 * rootMultiplier)
+        next = normalizeProgress({ ...next, qi: next.qi + qi })
+        next = { ...next, chronicle: addChronicle(next, 'event', '破禁得机缘', `禁制散去，灵气 +${qi}。`) }
+      } else {
+        next = applyAge(next, 6)
+        next = { ...next, chronicle: addChronicle(next, 'event', '破禁受挫', '石门禁制反噬，额外耗去 6 个月寿元。') }
+      }
+    } else {
+      next = { ...next, chronicle: addChronicle(next, 'event', '收敛离去', '你收回神识，任那一线灵光消散于山雾之间。') }
+    }
+  } else if (encounter.friend) {
+    let affection: number
+    let title: string
+    let text: string
+    if (choice === 'invite') {
+      affection = randomInt(20, 50)
+      title = `结识·${encounter.friend.name}`
+      text = `你执礼相邀，${encounter.friend.name}欣然应下这一声道友。初始好感 ${affection}。`
+    } else if (choice === 'challenge') {
+      affection = randomInt(-50, -15)
+      title = `锋芒相试·${encounter.friend.name}`
+      text = `言语交锋后，${encounter.friend.name}记住了你的气息。初始好感 ${affection}。`
+    } else {
+      affection = randomInt(-10, 20)
+      title = `结识·${encounter.friend.name}`
+      text = `你们闲谈数语，${encounter.friend.name}留下了日后再会的约定。初始好感 ${affection}。`
+    }
+    const friend = { ...encounter.friend, affection, memory: text }
+    next = {
+      ...next,
+      friends: [...next.friends, friend],
+      chronicle: addChronicle(next, 'friend', title, text),
+    }
+  }
+
+  return {
+    ...next,
+    running: next.phase === 'playing' && Boolean(next.actionPlan),
+    lastUpdatedAt: Date.now(),
+  }
 }
 
 export function breakthroughChance(game: GameData): number {
@@ -291,6 +384,7 @@ export function reincarnate(game: GameData, now = Date.now()): GameData {
     friends: returningFriends,
     lineage,
     actionPlan: null,
+    pendingEncounter: null,
     activeAction: null,
   }
   return {
