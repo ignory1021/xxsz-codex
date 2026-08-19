@@ -15,7 +15,7 @@ const TAB_LABELS: Array<{ id: Tab; label: string; mark: string }> = [
 ]
 
 const ACTION_LABELS: Record<ActionKind, string> = { cultivate: '修行', adventure: '游历', alchemy: '炼丹' }
-const DIFFICULTY_INTENSITY: Record<Difficulty, string> = { light: '短程', medium: '常程', heavy: '长程', extreme: '极程' }
+const DIFFICULTY_INTENSITY: Record<Difficulty, string> = { light: '短程', medium: '常程', heavy: '长程' }
 
 function DifficultyPicker({ kind }: { kind: ActionKind }) {
   const game = useGameStore((state) => state.game)!
@@ -51,7 +51,7 @@ function DifficultyPicker({ kind }: { kind: ActionKind }) {
     <div className="difficulty-section">
       <div className="section-heading">
         <span>择一程</span>
-        <small>难度越高，岁月与收获皆重</small>
+        <small>行程越长，单次收获越多</small>
       </div>
       <div className="difficulty-grid">
         {DIFFICULTIES.map((difficulty) => {

@@ -1,7 +1,7 @@
 import { REALMS } from '../data/gameData'
 import type { GameSpeed, OfflineReport } from './types'
 
-export const MONTH_MS_AT_X1 = 3_000
+export const MONTH_MS_AT_X1 = 1_000
 
 export function advanceMonthClock(
   elapsedMs: number,

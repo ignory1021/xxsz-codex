@@ -123,6 +123,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const alchemyRecipeId = PILL_RECIPES.some((recipe) => recipe.id === saved.alchemyRecipeId)
       ? saved.alchemyRecipeId
       : 'peiyuan'
+    const savedPlan = saved.actionPlan as { kind: ActionKind; difficulty: unknown } | null
+    const actionPlan = savedPlan
+      ? { ...savedPlan, difficulty: savedPlan.difficulty === 'extreme' ? 'heavy' : savedPlan.difficulty as Difficulty }
+      : null
     let game: GameData = {
       ...saved,
       speed,
@@ -131,7 +135,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       breakthroughBonus: saved.breakthroughBonus ?? 0,
       lifespanBonusYears: saved.lifespanBonusYears ?? 0,
       companionSoulId: saved.companionSoulId && saved.friends.some((friend) => friend.soulId === saved.companionSoulId) ? saved.companionSoulId : null,
-      actionPlan: saved.actionPlan ?? null,
+      actionPlan,
       pendingEncounter: saved.pendingEncounter ?? null,
       activeAction: null,
       recentEncounterIds: saved.recentEncounterIds ?? [],
@@ -141,7 +145,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       game = { ...game, running: false, idleMode: false }
     }
     let offlineReport: OfflineReport | null = null
-    if (game.running && elapsed >= 3_000 && game.phase === 'playing') {
+    if (game.running && elapsed >= 1_000 && game.phase === 'playing') {
       const calculated = calculateOfflineProgress(elapsed, saved.realmIndex, saved.ageMonths, saved.monthProgress, saved.layer)
       offlineReport = calculated
       game = normalizeProgress({ ...game, qi: game.qi + calculated.qiGained, monthProgress: calculated.progress })

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EMPTY_PILL_STOCK } from '../data/gameData'
-import { applyAge, attemptBreakthrough, createNewGame, lifespanYears, normalizeProgress, qiRequirement, resolveEncounter, settleAction, takePill } from './game'
+import { applyAge, attemptBreakthrough, createNewGame, lifespanYears, normalizeProgress, qiRequirement, realmQiMultiplier, resolveEncounter, settleAction, takePill } from './game'
 import { generateFriend, generateSpiritRoot } from './random'
 
 function gameFixture() {
@@ -66,6 +66,42 @@ describe('action records', () => {
   it('writes completed actions into the chronicle', () => {
     const game = settleAction(gameFixture(), 'cultivate', 'light').game
     expect(game.chronicle[0]).toMatchObject({ type: 'action', title: '吐纳归元' })
+  })
+})
+
+describe('action balance', () => {
+  it('keeps the three action durations available from qi refining', () => {
+    const game = settleAction(gameFixture(), 'cultivate', 'heavy').game
+    expect(game.chronicle[0].title).toBe('吐纳归元')
+  })
+
+  it('scales the same action with the current realm', () => {
+    expect(realmQiMultiplier(0)).toBe(1)
+    expect(realmQiMultiplier(2)).toBe(2)
+    expect(realmQiMultiplier(5)).toBe(300)
+  })
+
+  it('makes a successful adventure-and-alchemy loop exceed two pure actions', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const base = {
+      ...gameFixture(),
+      character: {
+        ...gameFixture().character,
+        spiritRoot: { name: '三灵根', elements: ['金', '木', '水'], aptitude: 6, structureMultiplier: 1 },
+      },
+      inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK } },
+    }
+    const afterAdventure = settleAction(base, 'adventure', 'heavy').game
+    const adventure = afterAdventure.chronicle[0]
+    const alchemy = settleAction(afterAdventure, 'alchemy', 'heavy', 'peiyuan').result
+    const cultivation = settleAction(base, 'cultivate', 'heavy').result
+
+    expect(afterAdventure.inventory).toMatchObject({ herbs: 3, ore: 1 })
+    expect(adventure.text).toContain('灵气 +180')
+    expect(alchemy.rewards).toContain('灵气 +150')
+    expect(180 + 150 + 100).toBeGreaterThan(200 * 2)
+    expect(cultivation.rewards).toContain('灵气 +200')
+    random.mockRestore()
   })
 })
 
@@ -138,7 +174,8 @@ describe('pills and breakthrough', () => {
   it('consumes a Peiyuan pill for its documented qi gain', () => {
     const game = takePill({ ...gameFixture(), inventory: { herbs: 0, ore: 0, pills: { ...EMPTY_PILL_STOCK, peiyuan: 1 } } }).game
     expect(game.inventory.pills.peiyuan).toBe(0)
-    expect(game.qi).toBe(50)
+    expect(game.layer).toBe(2)
+    expect(game.qi).toBe(0)
     expect(game.chronicle[0].title).toBe('服用培元丹')
   })
 

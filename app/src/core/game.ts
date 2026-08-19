@@ -21,6 +21,21 @@ export function aptitudeMultiplier(aptitude: number): number {
   return 2
 }
 
+export function realmQiMultiplier(realmIndex: number): number {
+  return Math.max(1, Math.floor(REALMS[realmIndex].qiStart / 1_000))
+}
+
+function actionQiBase(game: GameData, baseQi: number): number {
+  const root = game.character.spiritRoot
+  return Math.round(baseQi * root.structureMultiplier * aptitudeMultiplier(root.aptitude) * realmQiMultiplier(game.realmIndex))
+}
+
+const ADVENTURE_YIELDS: Record<Difficulty, { herbs: number; oreChance: number }> = {
+  light: { herbs: 1, oreChance: 0.15 },
+  medium: { herbs: 2, oreChance: 0.45 },
+  heavy: { herbs: 3, oreChance: 0.75 },
+}
+
 export function qiRequirement(realmIndex: number, layer: number, perfect: boolean): number {
   const realm = REALMS[realmIndex]
   if (perfect) return 0
@@ -311,11 +326,10 @@ function completeAction(game: GameData, result: ActionResult, companionSoulId?: 
 
 export function settleAction(game: GameData, kind: ActionKind, difficulty: Difficulty, recipeId = game.alchemyRecipeId, companionSoulId = game.companionSoulId): { game: GameData; result: ActionResult } {
   const difficultyConfig = DIFFICULTIES.find((item) => item.id === difficulty) ?? DIFFICULTIES[0]
-  const root = game.character.spiritRoot
-  const rootMultiplier = root.structureMultiplier * aptitudeMultiplier(root.aptitude)
+  const baseQi = actionQiBase(game, difficultyConfig.baseQi)
 
   if (kind === 'cultivate') {
-    const qiResult = applyCompanionQi(game, companionSoulId, Math.round(difficultyConfig.baseQi * rootMultiplier))
+    const qiResult = applyCompanionQi(game, companionSoulId, baseQi)
     const next = normalizeProgress({ ...game, qi: game.qi + qiResult.qi, activeAction: null })
     const result: ActionResult = {
       kind,
@@ -331,9 +345,10 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
 
   if (kind === 'adventure') {
     const companionAssists = Boolean(companionFor(game, companionSoulId) && Math.random() < 0.3)
-    const herbs = randomInt(1, Math.max(1, Math.ceil(difficultyConfig.months / 12) + 1)) + (companionAssists ? 1 : 0)
-    const ore = Math.random() < 0.35 ? 1 : 0
-    const qiResult = applyCompanionQi(game, companionSoulId, Math.max(2, Math.round(difficultyConfig.baseQi * rootMultiplier * 0.25)))
+    const yieldConfig = ADVENTURE_YIELDS[difficultyConfig.id]
+    const herbs = yieldConfig.herbs + (companionAssists ? 1 : 0)
+    const ore = Math.random() < yieldConfig.oreChance ? 1 : 0
+    const qiResult = applyCompanionQi(game, companionSoulId, Math.max(2, Math.round(baseQi * 0.9)))
     const rewards = [...qiResult.rewards, `灵草 +${herbs}`]
     if (companionAssists) rewards.push('道友寻得额外材料')
     if (ore) rewards.push('灵矿 +1')
@@ -361,7 +376,7 @@ export function settleAction(game: GameData, kind: ActionKind, difficulty: Diffi
   const companionAssists = Boolean(companionFor(game, companionSoulId) && Math.random() < 0.2)
   const successRate = Math.min(0.95, 0.8 - DIFFICULTIES.indexOf(difficultyConfig) * 0.1 + game.layer * 0.01 + (companionAssists ? 0.15 : 0))
   const success = Math.random() <= successRate
-  const qiResult = applyCompanionQi(game, companionSoulId, success ? Math.max(3, Math.round(difficultyConfig.baseQi * 0.35)) : 2)
+  const qiResult = applyCompanionQi(game, companionSoulId, Math.max(2, Math.round(baseQi * (success ? 0.75 : 0.25))))
   const inventory = {
     ...game.inventory,
     herbs: game.inventory.herbs - (success ? recipe.herbsCost : Math.max(1, Math.ceil(recipe.herbsCost / 2))),

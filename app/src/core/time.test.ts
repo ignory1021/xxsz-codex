@@ -2,20 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { advanceMonthClock, calculateOfflineProgress, effectiveOfflineMs, formatAge } from './time'
 
 describe('month clock', () => {
-  it('advances one month every three seconds at x1', () => {
-    expect(advanceMonthClock(3_000, 1, 0)).toEqual({ months: 1, progress: 0 })
+  it('advances one month every second at x1', () => {
+    expect(advanceMonthClock(1_000, 1, 0)).toEqual({ months: 1, progress: 0 })
   })
 
   it('keeps fractional month progress across ticks', () => {
-    const first = advanceMonthClock(1_500, 1, 0)
-    const second = advanceMonthClock(1_500, 1, first.progress)
+    const first = advanceMonthClock(500, 1, 0)
+    const second = advanceMonthClock(500, 1, first.progress)
     expect(first).toEqual({ months: 0, progress: 0.5 })
     expect(second).toEqual({ months: 1, progress: 0 })
   })
 
   it('applies x5 and x10 to age without changing the unit', () => {
-    expect(advanceMonthClock(600, 5, 0).months).toBe(1)
-    expect(advanceMonthClock(300, 10, 0).months).toBe(1)
+    expect(advanceMonthClock(200, 5, 0).months).toBe(1)
+    expect(advanceMonthClock(100, 10, 0).months).toBe(1)
   })
 })
 

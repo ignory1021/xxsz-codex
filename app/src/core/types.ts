@@ -1,6 +1,6 @@
 export type Gender = '男' | '女' | '无定'
 export type Personality = '豪迈' | '谨慎' | '豁达' | '温和' | '孤僻' | '清冷'
-export type Difficulty = 'light' | 'medium' | 'heavy' | 'extreme'
+export type Difficulty = 'light' | 'medium' | 'heavy'
 export type ActionKind = 'cultivate' | 'adventure' | 'alchemy'
 export type EncounterChoice = 'observe' | 'risk' | 'leave' | 'invite' | 'greet' | 'challenge'
 export type GameSpeed = 1 | 5 | 10

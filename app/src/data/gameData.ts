@@ -15,13 +15,12 @@ export const REALMS: RealmConfig[] = [
 export const DIFFICULTIES: DifficultyConfig[] = [
   { id: 'light', name: '小周天', months: 1, baseQi: 10, durationMs: 2_400, unlockRealm: 0 },
   { id: 'medium', name: '入定', months: 3, baseQi: 40, durationMs: 3_200, unlockRealm: 0 },
-  { id: 'heavy', name: '闭关', months: 12, baseQi: 200, durationMs: 5_600, unlockRealm: 1 },
-  { id: 'extreme', name: '忘岁', months: 60, baseQi: 1_200, durationMs: 8_000, unlockRealm: 2 },
+  { id: 'heavy', name: '闭关', months: 12, baseQi: 200, durationMs: 5_600, unlockRealm: 0 },
 ]
 
 export const PILL_RECIPES: PillRecipe[] = [
-  { id: 'peiyuan', name: '培元丹', unlockRealm: 0, herbsCost: 2, oreCost: 0, effect: 'qi', effectValue: 50, description: '温养经脉，适合初入仙途时稳固根基。' },
-  { id: 'ningyuan', name: '凝元丹', unlockRealm: 1, herbsCost: 3, oreCost: 1, effect: 'qi', effectValue: 200, description: '灵元凝练，可助筑基修士积蓄道基。' },
+  { id: 'peiyuan', name: '培元丹', unlockRealm: 0, herbsCost: 2, oreCost: 0, effect: 'qi', effectValue: 100, description: '温养经脉，适合初入仙途时稳固根基。' },
+  { id: 'ningyuan', name: '凝元丹', unlockRealm: 1, herbsCost: 3, oreCost: 1, effect: 'qi', effectValue: 250, description: '灵元凝练，可助筑基修士积蓄道基。' },
   { id: 'jinsui', name: '净灵丹', unlockRealm: 2, herbsCost: 4, oreCost: 2, effect: 'purify', effectValue: 1, description: '洗去一分驳杂灵性，使灵根更为纯粹。' },
   { id: 'yinghua', name: '悟道丹', unlockRealm: 3, herbsCost: 5, oreCost: 3, effect: 'insight', effectValue: 2, description: '一缕道韵归于识海，可助元婴参悟天地。' },
   { id: 'huashen', name: '延寿丹', unlockRealm: 4, herbsCost: 6, oreCost: 4, effect: 'lifespan', effectValue: 20, description: '药性绵长，能为此世再续一段寿元。' },
