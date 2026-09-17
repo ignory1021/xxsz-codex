@@ -1,0 +1,4 @@
+:root { font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif; color: #403529; background: #f5eee1; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+body { min-width: 320px; min-height: 100vh; margin: 0; }
+button { -webkit-tap-highlight-color: transparent; }
