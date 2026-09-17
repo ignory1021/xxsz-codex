@@ -9,6 +9,11 @@
 .stats span { color: #766b5e; font-size: .86rem; }
 .stats strong { color: #3c3024; }
 .panel { margin-top: 16px; border: 1px solid #dccdb8; background: rgba(255, 250, 240, .9); padding: 18px; box-shadow: 0 6px 24px rgba(73, 49, 20, .06); }
+.section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.map-list { display: grid; gap: 1px; margin: 16px -18px -18px; border-top: 1px solid #eadcc9; background: #eadcc9; }
+.map-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px 18px; background: #fffaf0; }
+.map-row div { display: grid; gap: 4px; }.map-row span, .map-row small { color: #766b5e; font-size: .84rem; }.map-row small { color: #9a866f; }
+.map-row .primary-button { margin: 0; white-space: nowrap; }.primary-button:disabled { cursor: not-allowed; opacity: .46; }
 .cost { margin-top: 14px !important; font-size: .88rem; }
 .primary-button, .subtle-button, .notice button { cursor: pointer; font: inherit; }
 .primary-button { margin-top: 15px; border: 0; background: #7b4c26; color: #fffaf0; padding: 10px 17px; border-radius: 3px; }
@@ -19,4 +24,6 @@
 .materials dt { color: #7b6b58; font-size: .8rem; }.materials dd { margin: 3px 0 0; color: #3e2d1d; font-weight: 700; }
 .journal ol { list-style: none; padding: 0; margin: 10px 0 0; }.journal li { border-top: 1px solid #e8dac7; padding: 10px 0; display: grid; gap: 3px; }.journal span { color: #6d6258; font-size: .9rem; }
 .notice { position: fixed; inset: auto 18px 18px; margin: auto; width: min(500px, calc(100% - 36px)); box-sizing: border-box; background: #3c3024; color: #fffaf0; padding: 13px; display: flex; justify-content: space-between; gap: 16px; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,.2); }.notice button { border: 1px solid #d9cbb8; color: inherit; background: transparent; padding: 4px 8px; }
+.status-note { margin: 16px 0 0; border-left: 3px solid #a65c39; padding: 10px 12px; color: #7a3d20; background: #fff2e8; font-size: .88rem; }
+.overlay { position: fixed; z-index: 10; inset: 0; display: grid; place-items: end center; padding: 20px; background: rgba(37, 27, 18, .48); }.event-card { width: min(620px, 100%); padding: 24px; background: #fffaf0; box-shadow: 0 16px 45px rgba(0,0,0,.28); }.event-card h2 { margin: 4px 0 10px; color: #2a211a; font-family: Georgia, 'Songti SC', serif; }.event-card p { color: #675d53; }.event-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 20px; }.event-actions .primary-button { margin: 0; }.event-actions .subtle-button { background: #fffaf0; }
 @media (max-width: 420px) { .game-shell { padding-inline: 14px; }.materials { grid-template-columns: repeat(3, 1fr); } }
